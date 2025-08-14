@@ -1,0 +1,53 @@
+# Build results
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider
+.idea/
+*.sln.iml
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+*.nuspec
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# ASP.NET
+appsettings.Development.json
+appsettings.*.json
+
+# Entity Framework
+*.mdf
+*.ldf
+
+# Coverage / Testing
+*.coverage
+*.coveragexml
+TestResults/
+*.trx
+
+# Others
+_ReSharper*/
+*.DotSettings.user
+*.swp
+*.bak
+*.tmp
+*.log
+*.DS_Store
+Thumbs.db
+
+# Publish output
+publish/
+
