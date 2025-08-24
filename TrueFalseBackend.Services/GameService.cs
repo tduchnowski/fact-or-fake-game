@@ -17,6 +17,7 @@ public class GameService
         _stateSynchronizer = stateSynchronizer;
     }
 
+    // TODO: return bool value indicating success or failure
     public async Task CreateGame(string roomId)
     {
         Console.WriteLine($"GameService: create game for room: {roomId}");
@@ -35,7 +36,6 @@ public class GameService
         {
             _ = Task.Run(game.StartGame);
         }
-
     }
 
     public void CancelGame(string roomId)
@@ -54,7 +54,7 @@ public class GameService
         if (_activeGames.TryGetValue(roomId, out var game) && game != null)
         {
             if (roomState.CurrentRound?.Id != game.CurrentRound) return;
-            if (roomState.CurrentRound?.PlayersAnswers.Count == roomState.Players.Count) game.CancelCurrentTimer();
+            if (roomState.CurrentRound?.PlayersAnswers.Count == roomState.Players.Count) game.FinishCurrentRound();
         }
     }
 }
@@ -88,18 +88,11 @@ public class TrueFalseGame
             // TODO: should be throwing errors if something goes wrong with fetching
             // questions and states
             state = await _stateSynchronizer.GetRoomState(_roomId);
-            if (state == null)
-            {
-                break;
-            }
-            if (state.CurrentRound == null)
-            {
-                state.CurrentRound = new() { Id = i - 1, RoundQuestion = new(), PlayersAnswers = [] };
-            }
+            if (state == null) break;
+            if (state.CurrentRound == null) state.CurrentRound = new() { Id = i - 1, RoundQuestion = new(), PlayersAnswers = [] };
             Console.WriteLine($"state is {state?.ToJsonString()}");
             List<Question> q = await _questionProvider.GetNext(1);
             if (q.Count == 0) break;
-            Console.WriteLine("state not null and question obtained");
             state!.AdvanceToNextRound(q[0]);
             CurrentRound = state.CurrentRound.Id;
             await _stateSynchronizer.PublishRoomState(_roomId, state);
@@ -118,7 +111,7 @@ public class TrueFalseGame
 
     public void CancelGame() { }
 
-    public void CancelCurrentTimer()
+    public void FinishCurrentRound()
     {
         Console.WriteLine("CancelCurrentTimer cancel");
         _timer?.CancelTimer();
@@ -142,7 +135,7 @@ public class RoundTimer
         catch (TaskCanceledException)
         {
             // ignore it, nothing bad happend
-            Console.WriteLine("CAncel exception");
+            Console.WriteLine("Cancelling timer");
         }
     }
 

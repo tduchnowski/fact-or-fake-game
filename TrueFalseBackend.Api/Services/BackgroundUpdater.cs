@@ -34,7 +34,6 @@ public class RedisStateUpdater : IHostedService
                 _ = Task.Run(async () =>
                 {
                     await _hubContext.Clients.Group(roomId).SendAsync("state", message);
-                    await _hubContext.Clients.All.SendAsync("state", message);
                     await SaveString(roomId, message);
                     RoomState state = JsonSerializer.Deserialize<RoomState>(message);
                     _gameService.UpdateState(roomId, state);
