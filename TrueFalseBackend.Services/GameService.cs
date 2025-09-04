@@ -7,7 +7,8 @@ namespace TrueFalseBackend.Services;
 
 public class GameService
 {
-    private readonly ConcurrentDictionary<string, TrueFalseGame> _activeGames = [];
+    private readonly ConcurrentDictionary<string, TrueFalseGame> _activeRooms = [];
+    private readonly ConcurrentDictionary<string, Task> _activeGames = [];
     private readonly IQuestionProvider _questionProvider;
     private readonly IRoomSynchronizer _synchronizer;
 
@@ -21,9 +22,7 @@ public class GameService
     public async Task CreateGame(string roomId)
     {
         Console.WriteLine($"GameService: create game for room: {roomId}");
-        // RoomState? state = await _synchronizer.GetRoomState(roomId);
-        // if (state == null) return;
-        _activeGames.GetOrAdd(roomId, new TrueFalseGame(roomId, _questionProvider, _synchronizer));
+        _activeRooms.GetOrAdd(roomId, new TrueFalseGame(roomId, _questionProvider, _synchronizer));
         RoomState roomState = new();
         await _synchronizer.PublishRoomState(roomId, roomState);
     }
@@ -34,12 +33,14 @@ public class GameService
         // try to access the game from this object, if it can't find it that means
         // the game wasn't created on this server and the function should do nothing
         // in this case
-        if (_activeGames.TryGetValue(roomId, out var game) && game != null)
+        if (_activeRooms.TryGetValue(roomId, out var game) && game != null)
         {
-            _ = Task.Run(game.StartGame);
+            _activeGames.TryAdd(roomId, Task.Run(game.StartGame));
+            // _ = Task.Run(game.StartGame);
         }
         else
         {
+            Console.WriteLine($"No registered room for roomId {roomId}");
         }
     }
 
@@ -48,7 +49,7 @@ public class GameService
 
     }
 
-    public void RemoveGame(string roomId)
+    public void RemoveRoom(string roomId)
     {
 
     }
@@ -56,7 +57,7 @@ public class GameService
     public async Task OnAnswersUpdated(string roomId, int roundId, RoundAnswers answers)
     {
         Console.WriteLine("Game service Update state");
-        if (_activeGames.TryGetValue(roomId, out var game) && game != null)
+        if (_activeRooms.TryGetValue(roomId, out var game) && game != null)
         {
             if (roundId != game.CurrentRound) return;
             PlayersInfo? currentPlayers = await _synchronizer.GetPlayersInfo(roomId);
@@ -132,8 +133,6 @@ public class TrueFalseGame
         }
         await _synchronizer.PublishPlayersInfo(_roomId, playersInfo);
     }
-
-    public void CancelGame() { }
 
     public void FinishCurrentRound()
     {

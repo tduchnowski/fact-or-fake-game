@@ -21,6 +21,7 @@ public class RoomState : JsonStringer
 
     public void AdvanceToNextRound(Question q)
     {
+        if (Stage == "finished") return;
         Stage = "roundInProgress";
         CurrentRound.Next(q);
     }
