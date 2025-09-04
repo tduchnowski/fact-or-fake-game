@@ -114,8 +114,6 @@ public class TrueFalseGame
             await _synchronizer.PublishRoomState(_roomId, state);
             await _timer.Start();
             await UpdateScores(q[0], state.CurrentRound.Id);
-            // state = await _stateSynchronizer.GetRoomState(_roomId);
-            // await _stateSynchronizer.PublishRoomState(_roomId, state);
             await Task.Delay(1500); // time after round to see the answer
         }
         RoomState? finishedState = await _synchronizer.GetRoomState(_roomId);
