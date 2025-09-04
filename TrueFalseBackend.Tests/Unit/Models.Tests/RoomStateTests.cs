@@ -16,6 +16,13 @@ public class RoomStateTests
     }
 
     [Fact]
+    public void TestRoomState_NewInstance_RoundIdIsZero()
+    {
+        RoomState roomState = new();
+        Assert.Equal(0, roomState.CurrentRound.Id);
+    }
+
+    [Fact]
     public void TestRoomState_AdvancingInProgressGame()
     {
         RoomState roomState = new();
