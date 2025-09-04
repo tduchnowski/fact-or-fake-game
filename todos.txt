@@ -1,5 +1,7 @@
 NEXT:
   - tests
+    - GameService
+    - models
   - logging
+  - errors
   - locks when updating states, answers and players
-
