@@ -26,7 +26,7 @@ builder.Services.AddSingleton<IQuestionProvider>(sp =>
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<IConnectionMultiplexer>(sp => { return ConnectionMultiplexer.Connect("localhost:6379"); });
-builder.Services.AddSingleton<IRoomStateSynchronizer, RedisGame>();
+builder.Services.AddSingleton<IRoomSynchronizer, RedisGame>();
 builder.Services.AddSingleton<GameService>();
 builder.Services.AddSingleton<RedisDb>();
 builder.Services.AddHostedService<RedisStateUpdater>();

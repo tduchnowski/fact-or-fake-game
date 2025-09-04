@@ -9,10 +9,10 @@ using TrueFalseBackend.Services;
 // further
 public class MultiplayerHub : Hub
 {
-    private readonly IRoomStateSynchronizer _redisGame;
+    private readonly IRoomSynchronizer _redisGame;
     private readonly GameService _gameService;
 
-    public MultiplayerHub(IRoomStateSynchronizer redisGame, GameService gameService)
+    public MultiplayerHub(IRoomSynchronizer redisGame, GameService gameService)
     {
         _redisGame = redisGame;
         _gameService = gameService;
@@ -34,14 +34,16 @@ public class MultiplayerHub : Hub
     {
         // TODO: first there needs to be some checking if roomId is even registered
         Console.WriteLine($"Join Room: {roomId}");
-        RoomState? roomState = await _redisGame.GetRoomState(roomId);
-        if (roomState == null) return;
-        roomState.AddPlayer(Context.ConnectionId);
-        if (roomState.IsPlayerHost(Context.ConnectionId))
+        PlayersInfo? playersInfo = await _redisGame.GetPlayersInfo(roomId);
+        if (playersInfo == null)
         {
-            await _gameService.CreateGame(roomId);
+            Console.WriteLine("PlayersInfo is null. Creating a new object");
+            playersInfo = new();
         }
-        await _redisGame.PublishRoomState(roomId, roomState);
+        playersInfo.AddPlayer(Context.ConnectionId);
+        if (playersInfo.Players.Count == 1) await _gameService.CreateGame(roomId);
+        await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
+        await _redisGame.PublishPlayersInfo(roomId, playersInfo);
     }
 
     public async Task GetState(string roomId)
@@ -54,11 +56,17 @@ public class MultiplayerHub : Hub
     public async Task SetName(string roomId, string name)
     {
         Console.WriteLine($"SetName [Room ID: {roomId}, name: {name}]");
-        RoomState? roomState = await _redisGame.GetRoomState(roomId);
-        if (roomState != null && roomState.Players.TryGetValue(Context.ConnectionId, out var p) && p != null)
+        PlayersInfo? playersInfo = await _redisGame.GetPlayersInfo(roomId);
+        if (playersInfo == null)
+        {
+            Console.WriteLine("PlayersInfo is null in SetName");
+            return;
+        }
+        Player? p = playersInfo.GetPlayer(Context.ConnectionId);
+        if (p != null)
         {
             p.PlayerName = name;
-            await _redisGame.PublishRoomState(roomId, roomState);
+            await _redisGame.PublishPlayersInfo(roomId, playersInfo);
         }
     }
 
@@ -67,15 +75,12 @@ public class MultiplayerHub : Hub
         _gameService.StartGame(roomId);
     }
 
-    // TODO: lock the database channel. right now there might be some conflicts
-    // when multiple people answer at roughly the same time. do some room lock or smth
-    // like that
     public async Task SendAnswer(string roomId, int round, string answer)
     {
         Console.WriteLine($"Send answer [RoomId: {roomId}, Round: {round}, Answer: {answer}]");
-        RoomState? roomState = await _redisGame.GetRoomState(roomId);
-        if (roomState == null) return;
-        roomState.AddAnswer(Context.ConnectionId, round, answer);
-        await _redisGame.PublishRoomState(roomId, roomState);
+        RoundAnswers? roundAnswers = await _redisGame.GetRoundAnswers(roomId, round);
+        if (roundAnswers == null) roundAnswers = new();
+        roundAnswers.AddAnswer(Context.ConnectionId, answer);
+        await _redisGame.PublishRoundAnswers(roomId, round, roundAnswers);
     }
 }

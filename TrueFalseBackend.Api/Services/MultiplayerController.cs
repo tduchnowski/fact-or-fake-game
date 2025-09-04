@@ -43,9 +43,7 @@ public class RestController : ControllerBase
         string roomId = Convert.ToBase64String(code);
         roomId = roomId.Replace("+", "-").Replace("/", "_").TrimEnd('=');
         RoomState initialRoomState = new() { RoundsNumber = roundsNum };
-        // TODO: check for errors
         await _db.StringSetAsync($"states:{roomId}", JsonSerializer.Serialize(initialRoomState));
-        // InMemoryStates.States[roomId] = initialRoomState;
         return Ok(new { status = "success", roomId });
     }
 }
