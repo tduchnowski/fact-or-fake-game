@@ -61,6 +61,7 @@ public class GameService
     {
         if (_activeRooms.TryGetValue(roomId, out var game) && game != null)
         {
+            Console.WriteLine("Attempting to cancel game");
             game.CancelGame();
         }
     }
@@ -123,6 +124,7 @@ public class TrueFalseGame
             RoomState state = new RoomState();
             for (int i = 1; i <= _maxRounds; i++)
             {
+                _gameCancellationTokenSource.Token.ThrowIfCancellationRequested();
                 if (state.CurrentRound == null) state.CurrentRound = new() { Id = i - 1, RoundQuestion = new() };
                 Console.WriteLine($"state is {state.ToJsonString()}");
                 List<Question> q = await _questionProvider.GetNext(1);

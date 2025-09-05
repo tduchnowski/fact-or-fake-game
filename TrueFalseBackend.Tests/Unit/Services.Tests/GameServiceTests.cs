@@ -28,7 +28,9 @@ public class InMemoryRoomSync : IRoomSynchronizer
     public Task<PlayersInfo?> GetPlayersInfo(string roomId)
     {
         if (_throwsExceptions) throw new Exception("InMemoryRoomSync Exception");
-        return Task.FromResult(_playerInfos[roomId]);
+        if (!_playerInfos.TryGetValue(roomId, out var pi))
+            pi = new();
+        return Task.FromResult(pi);
     }
 
     public Task PublishPlayersInfo(string roomId, PlayersInfo playersInfo)
@@ -41,7 +43,17 @@ public class InMemoryRoomSync : IRoomSynchronizer
     public Task<RoundAnswers?> GetRoundAnswers(string roomId, int roundId)
     {
         if (_throwsExceptions) throw new Exception("InMemoryRoomSync Exception");
-        return Task.FromResult(_roundAnswers[roomId][roundId]);
+        if (_roundAnswers.TryGetValue(roomId, out var ra))
+        {
+            if (ra.TryGetValue(roundId, out var answers))
+                return Task.FromResult(answers);
+            else
+                return Task.FromResult(new RoundAnswers());
+        }
+        else
+        {
+            return Task.FromResult(new RoundAnswers());
+        }
     }
 
     public Task PublishRoundAnswers(string roomId, int round, RoundAnswers roundAnswers)
@@ -127,7 +139,7 @@ public class GameServiceTests
         Assert.True(ok);
         TrueFalseGame? game = _gameService.GetActiveRoom(_defaultRoomId);
         Assert.NotNull(game);
-        bool status = game!.GameTask!.Status == TaskStatus.Running || game!.GameTask!.Status == TaskStatus.WaitingForActivation;
+        bool status = game!.GameTask!.Status is TaskStatus.Running or TaskStatus.WaitingForActivation;
         Assert.True(status);
     }
 
@@ -137,5 +149,16 @@ public class GameServiceTests
         string roomId = "123";
         bool ok = _gameService.StartGame(roomId);
         Assert.False(ok);
+    }
+
+    [Fact]
+    public async Task TrueFalseService_CancelGame_GameTaskCancelled()
+    {
+        _ = await CreateStandardGame();
+        _gameService.StartGame(_defaultRoomId);
+        TrueFalseGame? game = _gameService.GetActiveRoom(_defaultRoomId);
+        _gameService.CancelGame(_defaultRoomId);
+        await Assert.ThrowsAsync<OperationCanceledException>(() => game!.GameTask!);
+        Assert.True(game!.GameTask!.IsCanceled);
     }
 }
