@@ -112,10 +112,35 @@ public class PlayerTests
         Assert.Equal(numberOfPlayers, pi.Count());
     }
 
-    [Fact]
-    public void TestPlayersInfo_RemoveHost_AssignedNewHost()
+    [Theory]
+    [InlineData(2)]
+    [InlineData(100)]
+    [InlineData(200)]
+    [InlineData(1000)]
+    [InlineData(12345)]
+    public void TestPlayersInfo_RemoveHost_AssignedNewHost(int numberOfPlayers)
     {
-
+        PlayersInfo pi = new();
+        List<string> playerIds = [];
+        for (int i = 1; i <= numberOfPlayers; i++)
+        {
+            string playerId = $"player{i}";
+            playerIds.Add(playerId);
+            pi.AddPlayer(playerId);
+        }
+        pi.RemovePlayer("player1");
+        playerIds.Remove("player1");
+        int countHost = 0;
+        int countNoHost = 0;
+        foreach (string id in playerIds)
+        {
+            if (pi.IsPlayerHost(id))
+                countHost++;
+            else
+                countNoHost++;
+        }
+        Assert.Equal(1, countHost);
+        Assert.Equal(numberOfPlayers - 2, countNoHost);
     }
 
     [Theory]

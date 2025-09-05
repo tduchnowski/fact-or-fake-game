@@ -20,7 +20,14 @@ public class PlayersInfo : JsonStringer
 
     public void RemovePlayer(string playerId)
     {
+        Player? p = GetPlayer(playerId);
+        if (p == null) return;
         Players.Remove(playerId);
+        if (p.IsHost && Players.Count > 0)
+        {
+            string newHostId = Players.Keys.First();
+            Players[newHostId].IsHost = true;
+        }
     }
 
     public bool IsPlayerHost(string playerId)
