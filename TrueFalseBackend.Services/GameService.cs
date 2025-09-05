@@ -8,7 +8,6 @@ namespace TrueFalseBackend.Services;
 public class GameService
 {
     private readonly ConcurrentDictionary<string, TrueFalseGame> _activeRooms = [];
-    private readonly ConcurrentDictionary<string, Task> _activeGames = [];
     private readonly IQuestionProvider _questionProvider;
     private readonly IRoomSynchronizer _synchronizer;
 
@@ -19,15 +18,32 @@ public class GameService
     }
 
     // TODO: return bool value indicating success or failure
-    public async Task CreateGame(string roomId)
+    public async Task<bool> CreateGame(string roomId, int maxRounds, int roundTimeout, double midRoundDelay)
     {
         Console.WriteLine($"GameService: create game for room: {roomId}");
-        _activeRooms.GetOrAdd(roomId, new TrueFalseGame(roomId, _questionProvider, _synchronizer));
-        RoomState roomState = new();
-        await _synchronizer.PublishRoomState(roomId, roomState);
+        _ = _activeRooms.GetOrAdd(roomId, new TrueFalseGame(roomId, maxRounds, roundTimeout, midRoundDelay, _questionProvider, _synchronizer));
+        try
+        {
+            await _synchronizer.PublishRoomState(roomId, new RoomState());
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            return false;
+        }
+        return true;
     }
 
-    public void StartGame(string roomId)
+    public TrueFalseGame? GetActiveRoom(string roomId)
+    {
+        if (_activeRooms.TryGetValue(roomId, out var game) && game != null)
+        {
+            return game;
+        }
+        return null;
+    }
+
+    public bool StartGame(string roomId)
     {
         Console.WriteLine($"GameService: start game for room: {roomId}");
         // try to access the game from this object, if it can't find it that means
@@ -35,18 +51,18 @@ public class GameService
         // in this case
         if (_activeRooms.TryGetValue(roomId, out var game) && game != null)
         {
-            _activeGames.TryAdd(roomId, Task.Run(game.StartGame));
-            // _ = Task.Run(game.StartGame);
+            game.StartGame();
+            return true;
         }
-        else
-        {
-            Console.WriteLine($"No registered room for roomId {roomId}");
-        }
+        return false;
     }
 
     public void CancelGame(string roomId)
     {
-
+        if (_activeRooms.TryGetValue(roomId, out var game) && game != null)
+        {
+            game.CancelGame();
+        }
     }
 
     public void RemoveRoom(string roomId)
@@ -76,57 +92,58 @@ public class GameService
 
 public class TrueFalseGame
 {
+    public Task? GameTask { get; private set; }
+    public int CurrentRound { get; private set; }
     private readonly IQuestionProvider _questionProvider;
     private readonly IRoomSynchronizer _synchronizer;
     private readonly string _roomId;
-    public int CurrentRound { get; private set; }
-    private int _maxRounds;
-    private RoundTimer? _timer;
+    private readonly int _maxRounds;
+    private readonly int _roundTimeout;
+    private readonly double _midRoundDelay;
+    private readonly RoundTimer _timer;
+    private readonly CancellationTokenSource _gameCancellationTokenSource = new();
 
-    public TrueFalseGame(string roomId, IQuestionProvider questionProvider, IRoomSynchronizer stateSynchronizer)
+    public TrueFalseGame(string roomId, int maxRounds, int roundTimeout, double midRoundDelay, IQuestionProvider questionProvider, IRoomSynchronizer stateSynchronizer)
     {
         _questionProvider = questionProvider;
         _synchronizer = stateSynchronizer;
         _roomId = roomId;
+        _maxRounds = maxRounds;
+        _roundTimeout = roundTimeout;
+        _midRoundDelay = midRoundDelay;
+        _timer = new RoundTimer(roundTimeout);
     }
 
-    public async Task StartGame()
+    public void StartGame()
     {
-        Console.WriteLine($"Starting a game for room: {_roomId}");
-        RoomState? state = await _synchronizer.GetRoomState(_roomId);
-        if (state == null) return;
-        _maxRounds = state.RoundsNumber;
-        int timeout = state.RoundTimeoutSeconds;
-        _timer = new RoundTimer(timeout);
-        Console.WriteLine($"Start game round limit = {_maxRounds}, timeout = {timeout}");
-        Console.WriteLine($"Current round: {state.CurrentRound}");
-        for (int i = 1; i <= _maxRounds; i++)
+        GameTask = Task.Run(async () =>
         {
-            // TODO: should be throwing errors if something goes wrong with fetching
-            // questions and states
-            state = await _synchronizer.GetRoomState(_roomId);
-            if (state == null) break;
-            if (state.CurrentRound == null) state.CurrentRound = new() { Id = i - 1, RoundQuestion = new() };
-            Console.WriteLine($"state is {state?.ToJsonString()}");
-            List<Question> q = await _questionProvider.GetNext(1);
-            if (q.Count == 0) break;
-            state!.AdvanceToNextRound(q[0]);
-            CurrentRound = state.CurrentRound.Id;
+            Console.WriteLine($"Starting a game for room: {_roomId}");
+            Console.WriteLine($"Start game round limit = {_maxRounds}, timeout = {_roundTimeout}, midRoundDelay = {_midRoundDelay}");
+            RoomState state = new RoomState();
+            for (int i = 1; i <= _maxRounds; i++)
+            {
+                if (state.CurrentRound == null) state.CurrentRound = new() { Id = i - 1, RoundQuestion = new() };
+                Console.WriteLine($"state is {state.ToJsonString()}");
+                List<Question> q = await _questionProvider.GetNext(1);
+                if (q.Count == 0) break;
+                state.AdvanceToNextRound(q[0]);
+                CurrentRound = state.CurrentRound.Id;
+                await _synchronizer.PublishRoomState(_roomId, state);
+                await _timer.Start();
+                await UpdateScores(q[0], CurrentRound);
+                await Task.Delay((int)(_midRoundDelay * 1000));
+            }
+            state.Stage = "finished";
             await _synchronizer.PublishRoomState(_roomId, state);
-            await _timer.Start();
-            await UpdateScores(q[0], state.CurrentRound.Id);
-            await Task.Delay(1500); // time after round to see the answer
-        }
-        RoomState? finishedState = await _synchronizer.GetRoomState(_roomId);
-        if (finishedState == null) return;
-        finishedState.Stage = "finished";
-        await _synchronizer.PublishRoomState(_roomId, finishedState);
+        }, _gameCancellationTokenSource.Token);
     }
 
-    private async Task UpdateScores(Question q, int roundId)
+    public async Task UpdateScores(Question q, int roundId)
     {
         PlayersInfo? playersInfo = await _synchronizer.GetPlayersInfo(_roomId);
         RoundAnswers? roundAnswers = await _synchronizer.GetRoundAnswers(_roomId, roundId);
+        if (playersInfo == null || roundAnswers == null) return;
         foreach (var (playerId, answer) in roundAnswers.PlayersAnswers)
         {
             if (answer == q.Answer) playersInfo.Players[playerId].Score++;
@@ -138,6 +155,12 @@ public class TrueFalseGame
     {
         Console.WriteLine("CancelCurrentTimer cancel");
         _timer?.CancelTimer();
+    }
+
+    public void CancelGame()
+    {
+        Console.WriteLine("Cancelling game");
+        _gameCancellationTokenSource.Cancel();
     }
 }
 
