@@ -17,6 +17,7 @@ public class RoomState : JsonStringer
     public string Stage { get; set; } = "notStarted";
     public int RoundsNumber { get; set; } = 10;
     public int RoundTimeoutSeconds { get; set; } = 10;
+    public double MidRoundDelay { get; set; } = 1.5;
     public Round CurrentRound { get; set; } = new() { Id = 0, RoundQuestion = new() };
 
     public void AdvanceToNextRound(Question q)

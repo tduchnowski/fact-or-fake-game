@@ -17,23 +17,6 @@ public class GameService
         _synchronizer = stateSynchronizer;
     }
 
-    // TODO: return bool value indicating success or failure
-    public async Task<bool> CreateGame(string roomId, int maxRounds, int roundTimeout, double midRoundDelay)
-    {
-        Console.WriteLine($"GameService: create game for room: {roomId}");
-        _ = _activeRooms.GetOrAdd(roomId, new TrueFalseGame(roomId, maxRounds, roundTimeout, midRoundDelay, _questionProvider, _synchronizer));
-        try
-        {
-            await _synchronizer.PublishRoomState(roomId, new RoomState());
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-            return false;
-        }
-        return true;
-    }
-
     public TrueFalseGame? GetActiveRoom(string roomId)
     {
         if (_activeRooms.TryGetValue(roomId, out var game) && game != null)
@@ -43,18 +26,19 @@ public class GameService
         return null;
     }
 
-    public bool StartGame(string roomId)
+    public async Task<bool> StartGame(string roomId)
     {
         Console.WriteLine($"GameService: start game for room: {roomId}");
-        // try to access the game from this object, if it can't find it that means
-        // the game wasn't created on this server and the function should do nothing
-        // in this case
-        if (_activeRooms.TryGetValue(roomId, out var game) && game != null)
-        {
-            game.StartGame();
-            return true;
-        }
-        return false;
+        // if there is already a game in _activeRooms then it means there is a game
+        // already in progress, so don't do anything
+        if (_activeRooms.TryGetValue(roomId, out var game) && game != null) return false;
+        // get state for this room for information about rounds number and delays
+        RoomState? roomState = await _synchronizer.GetRoomState(roomId);
+        if (roomState == null) return false;
+        game = new TrueFalseGame(roomId, roomState.RoundsNumber, roomState.RoundTimeoutSeconds, 1.5, _questionProvider, _synchronizer);
+        _ = _activeRooms.GetOrAdd(roomId, game);
+        game.StartGame();
+        return true;
     }
 
     public void CancelGame(string roomId)
@@ -85,7 +69,7 @@ public class GameService
         }
     }
 
-    public void OnPlayerDisconnected(string roomId, PlayersInfo pl)
+    public async Task OnPlayersUpdated(string roomId, PlayersInfo playersInfo)
     {
 
     }

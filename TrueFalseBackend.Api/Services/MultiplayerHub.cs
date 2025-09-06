@@ -41,7 +41,6 @@ public class MultiplayerHub : Hub
             playersInfo = new();
         }
         playersInfo.AddPlayer(Context.ConnectionId);
-        if (playersInfo.Players.Count == 1) await _gameService.CreateGame(roomId);
         await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
         await _redisGame.PublishPlayersInfo(roomId, playersInfo);
     }
@@ -70,9 +69,10 @@ public class MultiplayerHub : Hub
         }
     }
 
+    // TODO: check if a player requesting the start of the game is a host
     public async Task StartGame(string roomId)
     {
-        _gameService.StartGame(roomId);
+        await _gameService.StartGame(roomId);
     }
 
     public async Task SendAnswer(string roomId, int round, string answer)

@@ -86,56 +86,27 @@ public class InMemoryQuestionProvider : IQuestionProvider
 public class GameServiceTests
 {
     private GameService _gameService;
-    private GameService _gameServiceWithExceptions;
+    private InMemoryRoomSync _roomSync;
+    private InMemoryQuestionProvider _questionProvider;
 
     private readonly string _defaultRoomId = "123";
-    private readonly int _defaultMaxRounds = 10;
-    private readonly int _defaultRoundTimeout = 5;
-    private readonly double _defaultMidRoundDelay = 1.5;
+    private readonly RoomState _initialRoomState = new();
 
     public GameServiceTests()
     {
-        InMemoryRoomSync ims = new();
-        InMemoryQuestionProvider imqp = new();
-        _gameService = new GameService(imqp, ims);
-        InMemoryRoomSync imsWithExceptions = new InMemoryRoomSync(true);
-        _gameServiceWithExceptions = new GameService(imqp, imsWithExceptions);
-    }
-
-    private Task<bool> CreateStandardGame()
-    {
-        return _gameService.CreateGame(_defaultRoomId, _defaultMaxRounds, _defaultRoundTimeout, _defaultMidRoundDelay);
-    }
-
-    [Fact]
-    public async Task TestGameService_GameCreation_GameCreated()
-    {
-        bool ok = await CreateStandardGame();
-        Assert.True(ok);
-        Assert.NotNull(_gameService.GetActiveRoom(_defaultRoomId));
-    }
-
-    [Fact]
-    public async Task TestGameService_CallCreateTwiceForOneRoom_GameNotOverwritten()
-    {
-        _ = await CreateStandardGame();
-        TrueFalseGame? createdGameFirst = _gameService.GetActiveRoom(_defaultRoomId);
-        _ = await CreateStandardGame();
-        TrueFalseGame? createdGameSecond = _gameService.GetActiveRoom(_defaultRoomId);
-        Assert.True(createdGameFirst == createdGameSecond);
-    }
-
-    [Fact]
-    public async Task TestGameService_CreateWithExceptions_ReturnFalse()
-    {
-        Assert.False(await _gameServiceWithExceptions.CreateGame(_defaultRoomId, _defaultMaxRounds, _defaultRoundTimeout, _defaultMidRoundDelay));
+        _roomSync = new();
+        _questionProvider = new();
+        _gameService = new GameService(_questionProvider, _roomSync);
+        _initialRoomState.RoundsNumber = 3;
+        _initialRoomState.RoundTimeoutSeconds = 3;
+        _initialRoomState.MidRoundDelay = 0;
     }
 
     [Fact]
     public async Task TestGameService_StartGame_GameStarted()
     {
-        _ = await CreateStandardGame();
-        bool ok = _gameService.StartGame(_defaultRoomId);
+        await _roomSync.PublishRoomState(_defaultRoomId, _initialRoomState);
+        bool ok = await _gameService.StartGame(_defaultRoomId);
         Assert.True(ok);
         TrueFalseGame? game = _gameService.GetActiveRoom(_defaultRoomId);
         Assert.NotNull(game);
@@ -144,18 +115,20 @@ public class GameServiceTests
     }
 
     [Fact]
-    public void TestGameService_StartGameNotExistentRoom_ReturnFalse()
+    public async Task TestGameService_StartGameTwiceSameRoom_SecondCallReturnsFalse()
     {
-        string roomId = "123";
-        bool ok = _gameService.StartGame(roomId);
+        await _roomSync.PublishRoomState(_defaultRoomId, _initialRoomState);
+        bool ok = await _gameService.StartGame(_defaultRoomId);
+        Assert.True(ok);
+        ok = await _gameService.StartGame(_defaultRoomId);
         Assert.False(ok);
     }
 
     [Fact]
     public async Task TrueFalseService_CancelGame_GameTaskCancelled()
     {
-        _ = await CreateStandardGame();
-        _gameService.StartGame(_defaultRoomId);
+        await _roomSync.PublishRoomState(_defaultRoomId, _initialRoomState);
+        await _gameService.StartGame(_defaultRoomId);
         TrueFalseGame? game = _gameService.GetActiveRoom(_defaultRoomId);
         _gameService.CancelGame(_defaultRoomId);
         await Assert.ThrowsAsync<OperationCanceledException>(() => game!.GameTask!);

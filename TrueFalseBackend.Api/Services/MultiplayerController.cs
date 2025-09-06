@@ -6,21 +6,18 @@ using StackExchange.Redis;
 
 using TrueFalseBackend.Models;
 using TrueFalseBackend.Services;
+using TrueFalseBackend.Infra.Redis;
 
 [ApiController]
 [Route("/api/[controller]")]
 public class RestController : ControllerBase
 {
-    private readonly IConnectionMultiplexer _conn;
-    private readonly IDatabase _db;
-    private readonly ISubscriber _subscriber;
+    private readonly IRoomSynchronizer _roomSync;
     private readonly IQuestionProvider _questionProvider;
 
-    public RestController(IQuestionProvider questionProvider, IConnectionMultiplexer conn)
+    public RestController(IRoomSynchronizer roomSync, IQuestionProvider questionProvider)
     {
-        _conn = conn;
-        _db = _conn.GetDatabase();
-        _subscriber = _conn.GetSubscriber();
+        _roomSync = roomSync;
         _questionProvider = questionProvider;
     }
 
@@ -43,7 +40,7 @@ public class RestController : ControllerBase
         string roomId = Convert.ToBase64String(code);
         roomId = roomId.Replace("+", "-").Replace("/", "_").TrimEnd('=');
         RoomState initialRoomState = new() { RoundsNumber = roundsNum };
-        await _db.StringSetAsync($"states:{roomId}", JsonSerializer.Serialize(initialRoomState));
+        await _roomSync.PublishRoomState(roomId, initialRoomState);
         return Ok(new { status = "success", roomId });
     }
 }
