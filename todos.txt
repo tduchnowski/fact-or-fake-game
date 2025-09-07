@@ -1,7 +1,5 @@
 NEXT:
-  - tests
-    - GameService
-    - models
+  - locks when updating states, answers and players
   - logging
   - errors
-  - locks when updating states, answers and players
+  - responses to clients about operation success or failure

@@ -4,6 +4,8 @@ using TrueFalseBackend.Infra.Data;
 using TrueFalseBackend.Infra.Redis;
 using TrueFalseBackend.Services;
 using TrueFalseBackend.Models;
+using RedLockNet.SERedis;
+using RedLockNet.SERedis.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
@@ -29,7 +31,20 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(sp => { return ConnectionM
 builder.Services.AddSingleton<IRoomSynchronizer, RedisGame>();
 builder.Services.AddSingleton<GameService>();
 builder.Services.AddSingleton<RedisDb>();
+builder.Services.AddSingleton(sp =>
+{
+
+    var multiplexer = sp.GetRequiredService<IConnectionMultiplexer>();
+
+    var endpoints = new List<RedLockMultiplexer>
+    {
+        new RedLockMultiplexer(multiplexer)
+    };
+
+    return RedLockFactory.Create(endpoints);
+});
 builder.Services.AddHostedService<RedisStateUpdater>();
+builder.Services.AddSingleton<IRedisLockerHelper, RedisLocker>();
 
 var app = builder.Build();
 app.MapControllers();

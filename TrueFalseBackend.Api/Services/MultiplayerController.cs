@@ -1,8 +1,6 @@
-using System.Text.Json;
 using System.Security.Cryptography;
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
-using StackExchange.Redis;
 
 using TrueFalseBackend.Models;
 using TrueFalseBackend.Services;
@@ -14,11 +12,13 @@ public class RestController : ControllerBase
 {
     private readonly IRoomSynchronizer _roomSync;
     private readonly IQuestionProvider _questionProvider;
+    private readonly ILogger<RestController> _logger;
 
-    public RestController(IRoomSynchronizer roomSync, IQuestionProvider questionProvider)
+    public RestController(IRoomSynchronizer roomSync, IQuestionProvider questionProvider, ILogger<RestController> logger)
     {
         _roomSync = roomSync;
         _questionProvider = questionProvider;
+        _logger = logger;
     }
 
     [HttpGet("randomQuestions/{size}")]

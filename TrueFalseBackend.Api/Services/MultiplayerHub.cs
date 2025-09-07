@@ -11,10 +11,12 @@ public class MultiplayerHub : Hub
 {
     private readonly IRoomSynchronizer _redisGame;
     private readonly GameService _gameService;
+    private readonly IRedisLockerHelper _redisLocker;
 
-    public MultiplayerHub(IRoomSynchronizer redisGame, GameService gameService)
+    public MultiplayerHub(IRoomSynchronizer redisGame, IRedisLockerHelper redisLocker, GameService gameService)
     {
         _redisGame = redisGame;
+        _redisLocker = redisLocker;
         _gameService = gameService;
     }
 
@@ -34,15 +36,21 @@ public class MultiplayerHub : Hub
     {
         // TODO: first there needs to be some checking if roomId is even registered
         Console.WriteLine($"Join Room: {roomId}");
-        PlayersInfo? playersInfo = await _redisGame.GetPlayersInfo(roomId);
-        if (playersInfo == null)
+        string resource = $"lock:players:{roomId}";
+        try
         {
-            Console.WriteLine("PlayersInfo is null. Creating a new object");
-            playersInfo = new();
+            await _redisLocker.ExecuteWithLock(resource, async () =>
+            {
+                PlayersInfo playersInfo = await _redisGame.GetPlayersInfo(roomId) ?? new();
+                playersInfo.AddPlayer(Context.ConnectionId);
+                await _redisGame.PublishPlayersInfo(roomId, playersInfo);
+            });
+            await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
         }
-        playersInfo.AddPlayer(Context.ConnectionId);
-        await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
-        await _redisGame.PublishPlayersInfo(roomId, playersInfo);
+        catch (TimeoutException)
+        {
+            Console.WriteLine("JoinRoom timeout exception");
+        }
     }
 
     public async Task GetState(string roomId)
@@ -55,17 +63,22 @@ public class MultiplayerHub : Hub
     public async Task SetName(string roomId, string name)
     {
         Console.WriteLine($"SetName [Room ID: {roomId}, name: {name}]");
-        PlayersInfo? playersInfo = await _redisGame.GetPlayersInfo(roomId);
-        if (playersInfo == null)
+        string resource = $"lock:players:{roomId}";
+        try
         {
-            Console.WriteLine("PlayersInfo is null in SetName");
-            return;
+            await _redisLocker.ExecuteWithLock(resource, async () =>
+            {
+                PlayersInfo? playersInfo = await _redisGame.GetPlayersInfo(roomId);
+                if (playersInfo == null) return;
+                Player? p = playersInfo.GetPlayer(Context.ConnectionId);
+                if (p == null) return;
+                p.PlayerName = name;
+                await _redisGame.PublishPlayersInfo(roomId, playersInfo);
+            });
         }
-        Player? p = playersInfo.GetPlayer(Context.ConnectionId);
-        if (p != null)
+        catch (TimeoutException)
         {
-            p.PlayerName = name;
-            await _redisGame.PublishPlayersInfo(roomId, playersInfo);
+            Console.WriteLine("SetName locker timeout");
         }
     }
 
@@ -78,9 +91,19 @@ public class MultiplayerHub : Hub
     public async Task SendAnswer(string roomId, int round, string answer)
     {
         Console.WriteLine($"Send answer [RoomId: {roomId}, Round: {round}, Answer: {answer}]");
-        RoundAnswers? roundAnswers = await _redisGame.GetRoundAnswers(roomId, round);
-        if (roundAnswers == null) roundAnswers = new();
-        roundAnswers.AddAnswer(Context.ConnectionId, answer);
-        await _redisGame.PublishRoundAnswers(roomId, round, roundAnswers);
+        string resource = $"lock:answers:{roomId}:{round}";
+        try
+        {
+            await _redisLocker.ExecuteWithLock(resource, async () =>
+            {
+                RoundAnswers roundAnswers = await _redisGame.GetRoundAnswers(roomId, round) ?? new();
+                roundAnswers.AddAnswer(Context.ConnectionId, answer);
+                await _redisGame.PublishRoundAnswers(roomId, round, roundAnswers);
+            });
+        }
+        catch (TimeoutException)
+        {
+            Console.WriteLine("SendAnswer locker timeout");
+        }
     }
 }
