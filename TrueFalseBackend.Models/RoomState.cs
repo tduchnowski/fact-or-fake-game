@@ -13,7 +13,7 @@ public class JsonStringer
 public class RoomState : JsonStringer
 {
     // description of a current stage of the game
-    // "notStarted", "roundInProgress", "finished"
+    // "notStarted", "waitingForStart", "roundInProgress", "finished"
     public string Stage { get; set; } = "notStarted";
     public int RoundsNumber { get; set; } = 10;
     public int RoundTimeoutSeconds { get; set; } = 10;
@@ -26,6 +26,18 @@ public class RoomState : JsonStringer
         Stage = "roundInProgress";
         CurrentRound.Next(q);
     }
+
+    public RoomState Clone()
+    {
+        return new RoomState()
+        {
+            Stage = this.Stage,
+            RoundsNumber = this.RoundsNumber,
+            RoundTimeoutSeconds = this.RoundTimeoutSeconds,
+            MidRoundDelay = this.MidRoundDelay,
+            CurrentRound = this.CurrentRound.Clone()
+        };
+    }
 }
 
 public class Round
@@ -37,5 +49,14 @@ public class Round
     {
         Id++;
         RoundQuestion = q;
+    }
+
+    public Round Clone()
+    {
+        return new Round()
+        {
+            Id = this.Id,
+            RoundQuestion = this.RoundQuestion
+        };
     }
 }

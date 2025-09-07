@@ -30,6 +30,11 @@ public class PlayersInfo : JsonStringer
         }
     }
 
+    public void SetPlayerName(string playerId, string name)
+    {
+
+    }
+
     public bool IsPlayerHost(string playerId)
     {
         if (Players.TryGetValue(playerId, out var p) && p != null) return p.IsHost;

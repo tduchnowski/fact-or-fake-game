@@ -32,6 +32,7 @@ public class RestController : ControllerBase
         return Ok(result);
     }
 
+    // TODO: add roundTimeout, midRoundDelay options
     [HttpGet("createRoom/{roundsNum}")]
     public async Task<IActionResult> CreateRoom([FromRoute] int roundsNum)
     {
