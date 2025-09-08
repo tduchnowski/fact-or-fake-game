@@ -9,20 +9,20 @@ public class RedisStateUpdater : IHostedService
 {
     private readonly IHubContext<MultiplayerHub> _hubContext;
     private readonly GameService _gameService;
+    private readonly ILogger<RedisStateUpdater> _logger;
     private readonly IConnectionMultiplexer _conn;
-    // private readonly IDatabase _db;
     private readonly ISubscriber _subscriber;
     private readonly Channel<(string, string)> _stateChan;
     private readonly Channel<(string, string)> _playersChan;
     private readonly Channel<(string, string)> _answersChan;
 
-    public RedisStateUpdater(IHubContext<MultiplayerHub> hubContext, IConnectionMultiplexer connection, GameService gameService)
+    public RedisStateUpdater(IHubContext<MultiplayerHub> hubContext, IConnectionMultiplexer connection, GameService gameService, ILogger<RedisStateUpdater> logger)
     {
         _hubContext = hubContext;
         _conn = connection;
-        // _db = _conn.GetDatabase();
         _subscriber = _conn.GetSubscriber();
         _gameService = gameService;
+        _logger = logger;
         _stateChan = Channel.CreateUnbounded<(string, string)>();
         _playersChan = Channel.CreateUnbounded<(string, string)>();
         _answersChan = Channel.CreateUnbounded<(string, string)>();
@@ -30,7 +30,7 @@ public class RedisStateUpdater : IHostedService
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        Console.WriteLine("Updater start async");
+        _logger.LogInformation("RedisStateUpdater starting...");
         _ = Task.Run(async () =>
         {
             await foreach (var (channel, message) in _stateChan.Reader.ReadAllAsync(cancellationToken))
@@ -40,7 +40,7 @@ public class RedisStateUpdater : IHostedService
                     string[] channelParts = channel.ToString().Split(':');
                     string roomId = channelParts[1];
                     await _hubContext.Clients.Group(roomId).SendAsync("state", message);
-                    // await SaveString(roomId, message);
+                    _logger.LogDebug("Broadcasted RoomState: {message}", message);
                 });
             }
         });
@@ -53,9 +53,8 @@ public class RedisStateUpdater : IHostedService
                 {
                     string[] channelParts = channel.ToString().Split(':');
                     string roomId = channelParts[1];
-                    Console.WriteLine($"roomId: {roomId} broadcasting");
                     await _hubContext.Clients.Group(roomId).SendAsync("players", message);
-                    // await SaveString(channel, message);
+                    _logger.LogDebug("Broadcasted PlayersInfo: {message}", message);
                 });
             }
         });
@@ -69,8 +68,8 @@ public class RedisStateUpdater : IHostedService
                     string[] channelParts = channel.ToString().Split(':');
                     string roomId = channelParts[1];
                     int roundId = int.Parse(channelParts[2]);
-                    // await SaveString(channel, message);
                     await _gameService.OnAnswersUpdated(roomId, roundId, JsonSerializer.Deserialize<RoundAnswers>(message));
+                    _logger.LogDebug("Updated answers: {message}", message);
                 });
             }
         });
@@ -78,30 +77,23 @@ public class RedisStateUpdater : IHostedService
         RedisChannel redisStateChan = new RedisChannel($"states:*", RedisChannel.PatternMode.Pattern);
         _ = _subscriber.SubscribeAsync(redisStateChan, async (channel, message) =>
         {
-            Console.WriteLine($"OnSubscribe -- channel: {channel}, message: {message}");
             await _stateChan.Writer.WriteAsync((channel, message.ToString()));
+            _logger.LogDebug("RoomState was published: {message}", message);
         });
         RedisChannel redisPlayersChan = new RedisChannel($"players:*", RedisChannel.PatternMode.Pattern);
         _ = _subscriber.SubscribeAsync(redisPlayersChan, (channel, message) =>
         {
-            Console.WriteLine($"OnSubscribe -- channel: {channel}, message: {message}");
             _ = _playersChan.Writer.WriteAsync((channel, message.ToString()));
+            _logger.LogDebug("PlayersInfo was published: {message}", message);
         });
         RedisChannel redisAnswersChan = new RedisChannel($"answers:*", RedisChannel.PatternMode.Pattern);
         _ = _subscriber.SubscribeAsync(redisAnswersChan, (channel, message) =>
         {
-            Console.WriteLine($"OnSubscribe -- channel: {channel}, message: {message}");
             _ = _answersChan.Writer.WriteAsync((channel, message.ToString()));
+            _logger.LogDebug("Answers were published: {message}", message);
         });
         return Task.CompletedTask;
     }
 
     public Task StopAsync(CancellationToken token) => Task.CompletedTask;
-
-    // private async Task SaveString(string key, string? roomStateJson)
-    // {
-    //     Console.WriteLine("Save string " + roomStateJson);
-    //     if (roomStateJson == null) return;
-    //     await _db.StringSetAsync(key, roomStateJson);
-    // }
 }

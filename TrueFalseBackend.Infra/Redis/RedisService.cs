@@ -58,10 +58,8 @@ public class RedisGame : IRoomSynchronizer
 
     public async Task PublishPlayersInfo(string roomId, PlayersInfo playersInfo)
     {
-        Console.WriteLine($"PublishPlayersInfo roomId {roomId}");
         RedisChannel chan = new RedisChannel($"players:{roomId}", RedisChannel.PatternMode.Literal);
         string playersInfoJson = playersInfo.ToJsonString();
-        Console.WriteLine(playersInfoJson);
         await _redisDb.Db.StringSetAsync(chan.ToString(), playersInfoJson);
         await _redisDb.Subscriber.PublishAsync(chan, playersInfoJson);
     }

@@ -18,7 +18,6 @@ public class InMemoryQuestionProvider : IQuestionProvider
 
     public Task<List<Question>> GetNext(int size)
     {
-        Console.WriteLine("Question Provider GetNext");
         size = Math.Min(size, _questions.Count);
         Random r = new();
         return Task.FromResult(_questions.OrderBy(q => r.Next(0, _questions.Count)).Take(size).ToList());

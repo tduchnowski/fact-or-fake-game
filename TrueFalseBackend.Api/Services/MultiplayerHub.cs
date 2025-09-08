@@ -24,13 +24,13 @@ public class MultiplayerHub : Hub
 
     public override async Task OnConnectedAsync()
     {
-        Console.WriteLine($"User connected: {Context.ConnectionId}");
+        _logger.LogInformation("User connected: {connectionId}", Context.ConnectionId);
         await base.OnConnectedAsync();
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        Console.WriteLine($"User disconnected: {Context.ConnectionId}");
+        _logger.LogInformation("User disconnected: {connectionId}", Context.ConnectionId);
         await base.OnDisconnectedAsync(exception);
     }
 
@@ -113,17 +113,17 @@ public class MultiplayerHub : Hub
     // TODO: check if a player requesting the start of the game is a host
     public async Task<OperationResult> StartGame(string roomId)
     {
-        _logger.LogInformation("StartGame roomId = {roomId}", roomId);
         if (await _gameService.StartGame(roomId))
         {
+            _logger.LogInformation("StartGame roomId = {roomId}. Game started", roomId);
             return OperationResult.Success();
         }
+        _logger.LogInformation("Couldn't start the game");
         return OperationResult.Fail("Couldn't start the game");
     }
 
     public async Task<OperationResult> SendAnswer(string roomId, int round, string answer)
     {
-        _logger.LogInformation("SendAnswer roomId = {roomId}, round = {round}, answer = {answer}", roomId, round, answer);
         try
         {
             bool ok = await _redisLocker.ExecuteWithLock($"lock:answers:{roomId}:{round}", async () =>
