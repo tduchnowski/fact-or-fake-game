@@ -1,5 +1,4 @@
 NEXT:
-  - locks when updating states, answers and players
   - logging
-  - errors
-  - responses to clients about operation success or failure
+  - integration tests
+  - end to end tests (client simulations)

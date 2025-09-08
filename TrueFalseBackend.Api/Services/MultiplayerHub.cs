@@ -32,78 +32,95 @@ public class MultiplayerHub : Hub
         await base.OnDisconnectedAsync(exception);
     }
 
-    public async Task JoinRoom(string roomId)
+    public async Task<OperationResult> JoinRoom(string roomId)
     {
         // TODO: first there needs to be some checking if roomId is even registered
         Console.WriteLine($"Join Room: {roomId}");
-        string resource = $"lock:players:{roomId}";
         try
         {
-            await _redisLocker.ExecuteWithLock(resource, async () =>
+            if (await _redisGame.GetRoomState(roomId) == null) return OperationResult.Fail("There's no room registered for this room id");
+            bool ok = await _redisLocker.ExecuteWithLock($"lock:players:{roomId}", async () =>
             {
                 PlayersInfo playersInfo = await _redisGame.GetPlayersInfo(roomId) ?? new();
                 playersInfo.AddPlayer(Context.ConnectionId);
                 await _redisGame.PublishPlayersInfo(roomId, playersInfo);
+                return true;
             });
             await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
+            return OperationResult.Success();
         }
         catch (TimeoutException)
         {
             Console.WriteLine("JoinRoom timeout exception");
+            return OperationResult.Fail("Internal server error");
+        }
+        catch (Exception e)
+        {
+            return OperationResult.Fail("Internal server error");
         }
     }
 
-    public async Task GetState(string roomId)
+    public async Task<RoomState?> GetState(string roomId)
     {
-        RoomState? roomState = await _redisGame.GetRoomState(roomId);
-        if (roomState == null) return;
-        await Clients.Caller.SendAsync("state", roomState.ToJsonString());
+        return await _redisGame.GetRoomState(roomId);
     }
 
-    public async Task SetName(string roomId, string name)
+    public async Task<OperationResult> SetName(string roomId, string name)
     {
         Console.WriteLine($"SetName [Room ID: {roomId}, name: {name}]");
-        string resource = $"lock:players:{roomId}";
         try
         {
-            await _redisLocker.ExecuteWithLock(resource, async () =>
+            bool ok = await _redisLocker.ExecuteWithLock($"lock:players:{roomId}", async () =>
             {
                 PlayersInfo? playersInfo = await _redisGame.GetPlayersInfo(roomId);
-                if (playersInfo == null) return;
+                if (playersInfo == null) return false;
                 Player? p = playersInfo.GetPlayer(Context.ConnectionId);
-                if (p == null) return;
+                if (p == null) return false;
                 p.PlayerName = name;
                 await _redisGame.PublishPlayersInfo(roomId, playersInfo);
+                return true;
             });
+            if (!ok) return OperationResult.Fail("Internal server error");
+            return OperationResult.Success();
         }
         catch (TimeoutException)
         {
             Console.WriteLine("SetName locker timeout");
+            return OperationResult.Fail("Internal server error");
         }
     }
 
     // TODO: check if a player requesting the start of the game is a host
-    public async Task StartGame(string roomId)
+    public async Task<OperationResult> StartGame(string roomId)
     {
-        await _gameService.StartGame(roomId);
+        if (await _gameService.StartGame(roomId)) return OperationResult.Success();
+        return OperationResult.Fail("Couldn't start the game");
     }
 
-    public async Task SendAnswer(string roomId, int round, string answer)
+    public async Task<OperationResult> SendAnswer(string roomId, int round, string answer)
     {
         Console.WriteLine($"Send answer [RoomId: {roomId}, Round: {round}, Answer: {answer}]");
-        string resource = $"lock:answers:{roomId}:{round}";
         try
         {
-            await _redisLocker.ExecuteWithLock(resource, async () =>
+            bool ok = await _redisLocker.ExecuteWithLock($"lock:answers:{roomId}:{round}", async () =>
             {
+                RoomState? roomState = await _redisGame.GetRoomState(roomId);
+                if (roomState == null || roomState.CurrentRound.Id != round) return false;
                 RoundAnswers roundAnswers = await _redisGame.GetRoundAnswers(roomId, round) ?? new();
                 roundAnswers.AddAnswer(Context.ConnectionId, answer);
                 await _redisGame.PublishRoundAnswers(roomId, round, roundAnswers);
+                return true;
             });
+            return OperationResult.Success();
         }
         catch (TimeoutException)
         {
             Console.WriteLine("SendAnswer locker timeout");
+            return OperationResult.Fail("Internal server error");
+        }
+        catch (Exception e)
+        {
+            return OperationResult.Fail("Internal server error");
         }
     }
 }

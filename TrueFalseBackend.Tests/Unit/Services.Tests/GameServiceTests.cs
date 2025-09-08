@@ -88,11 +88,20 @@ public class InMemoryQuestionProvider : IQuestionProvider
     }
 }
 
+public class FakeRedisLocker : IRedisLockerHelper
+{
+    public async Task<bool> ExecuteWithLock(string resource, Func<Task<bool>> operation)
+    {
+        return await operation();
+    }
+}
+
 public class GameServiceTests
 {
     private GameService _gameService;
     private InMemoryRoomSync _roomSync;
     private InMemoryQuestionProvider _questionProvider;
+    private readonly IRedisLockerHelper _fakeLocker = new FakeRedisLocker();
 
     private readonly string _defaultRoomId = "123";
     private readonly RoomState _initialRoomState = new();
@@ -101,7 +110,7 @@ public class GameServiceTests
     {
         _roomSync = new();
         _questionProvider = new();
-        _gameService = new GameService(_questionProvider, _roomSync);
+        _gameService = new GameService(_questionProvider, _roomSync, _fakeLocker);
         _initialRoomState.RoundsNumber = 3;
         _initialRoomState.RoundTimeoutSeconds = 3;
         _initialRoomState.MidRoundDelay = 0;

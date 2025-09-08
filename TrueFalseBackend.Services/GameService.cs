@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 using TrueFalseBackend.Models;
 using TrueFalseBackend.Infra.Redis;
 
-
 namespace TrueFalseBackend.Services;
 
 public class GameService
@@ -10,11 +9,13 @@ public class GameService
     private readonly ConcurrentDictionary<string, TrueFalseGame> _activeRooms = [];
     private readonly IQuestionProvider _questionProvider;
     private readonly IRoomSynchronizer _synchronizer;
+    private readonly IRedisLockerHelper _redisLocker;
 
-    public GameService(IQuestionProvider questionProvider, IRoomSynchronizer stateSynchronizer)
+    public GameService(IQuestionProvider questionProvider, IRoomSynchronizer stateSynchronizer, IRedisLockerHelper redisLocker)
     {
         _questionProvider = questionProvider;
         _synchronizer = stateSynchronizer;
+        _redisLocker = redisLocker;
     }
 
     public TrueFalseGame? GetActiveRoom(string roomId)
@@ -32,15 +33,26 @@ public class GameService
         // if there is already a game in _activeRooms then it means there is a game
         // already in progress, so don't do anything
         if (_activeRooms.TryGetValue(roomId, out var game) && game != null) return false;
-        // get state for this room for information about rounds number and delays
-        RoomState? roomState = await _synchronizer.GetRoomState(roomId);
-        if (roomState == null || roomState.Stage != "notStarted") return false;
-        game = new TrueFalseGame(roomId, _questionProvider, _synchronizer);
-        _ = _activeRooms.GetOrAdd(roomId, game);
-        roomState!.Stage = "waitingForStart";
-        await _synchronizer.PublishRoomState(roomId, roomState);
-        await game.StartGame();
-        return true;
+        try
+        {
+            return await _redisLocker.ExecuteWithLock($"lock:states:{roomId}", async () =>
+            {
+                // get state for this room for information about rounds number and delays
+                RoomState? roomState = await _synchronizer.GetRoomState(roomId);
+                if (roomState == null || roomState.Stage != "notStarted") return false;
+                game = new TrueFalseGame(roomId, _questionProvider, _synchronizer);
+                _ = _activeRooms.GetOrAdd(roomId, game);
+                roomState!.Stage = "waitingForStart";
+                await game.StartGame();
+                await _synchronizer.PublishRoomState(roomId, roomState);
+                return true;
+            });
+        }
+        catch (TimeoutException)
+        {
+            Console.WriteLine("StartGame redis lock timeout");
+            return false;
+        }
     }
 
     public void CancelGame(string roomId)
@@ -90,7 +102,7 @@ public class TrueFalseGame
     private readonly IQuestionProvider _questionProvider;
     private readonly IRoomSynchronizer _synchronizer;
     private readonly string _roomId;
-    private RoundTimer _timer;
+    private RoundTimer? _timer;
     private readonly CancellationTokenSource _gameCancellationTokenSource = new();
 
     public TrueFalseGame(string roomId, IQuestionProvider questionProvider, IRoomSynchronizer stateSynchronizer)
