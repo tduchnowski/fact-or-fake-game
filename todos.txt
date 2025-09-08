@@ -1,4 +1,6 @@
 NEXT:
-  - logging
+  - basic logging
+  - maximum performance logging
+  - fetch questions before starting a game instead of fetching questions one by one every round
   - integration tests
   - end to end tests (client simulations)

@@ -12,13 +12,11 @@ public class RestController : ControllerBase
 {
     private readonly IRoomSynchronizer _roomSync;
     private readonly IQuestionProvider _questionProvider;
-    private readonly ILogger<RestController> _logger;
 
-    public RestController(IRoomSynchronizer roomSync, IQuestionProvider questionProvider, ILogger<RestController> logger)
+    public RestController(IRoomSynchronizer roomSync, IQuestionProvider questionProvider)
     {
         _roomSync = roomSync;
         _questionProvider = questionProvider;
-        _logger = logger;
     }
 
     [HttpGet("randomQuestions/{size}")]
