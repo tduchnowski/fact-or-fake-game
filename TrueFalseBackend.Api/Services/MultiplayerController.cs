@@ -30,15 +30,14 @@ public class RestController : ControllerBase
         return Ok(result);
     }
 
-    // TODO: add roundTimeout, midRoundDelay options
-    [HttpGet("createRoom/{roundsNum}")]
-    public async Task<IActionResult> CreateRoom([FromRoute] int roundsNum)
+    [HttpGet("createRoom")]
+    public async Task<IActionResult> CreateRoom([FromQuery] int roundsNum, [FromQuery][Range(5, 20)] int roundTimeout, [FromQuery][Range(1, 5)] double midRoundDelay)
     {
         byte[] code = new byte[8];
         RandomNumberGenerator.Fill(code);
         string roomId = Convert.ToBase64String(code);
         roomId = roomId.Replace("+", "-").Replace("/", "_").TrimEnd('=');
-        RoomState initialRoomState = new() { RoundsNumber = roundsNum };
+        RoomState initialRoomState = new() { RoundsNumber = roundsNum, RoundTimeoutSeconds = roundTimeout, MidRoundDelay = midRoundDelay };
         await _roomSync.PublishRoomState(roomId, initialRoomState);
         return Ok(new { status = "success", roomId });
     }
