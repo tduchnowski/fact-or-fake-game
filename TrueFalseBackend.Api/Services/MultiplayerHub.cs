@@ -31,6 +31,27 @@ public class MultiplayerHub : Hub
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
         _logger.LogInformation("User disconnected: {connectionId}", Context.ConnectionId);
+        try
+        {
+            string roomId = await _redisGame.GetRoomForUser(Context.ConnectionId) ?? "";
+            bool ok = await _redisLocker.ExecuteWithLock($"lock:players:{roomId}", async () =>
+            {
+                PlayersInfo? pi = await _redisGame.GetPlayersInfo(roomId);
+                if (pi == null) return false;
+                pi.RemovePlayer(Context.ConnectionId);
+                await _redisGame.PublishPlayersInfo(roomId, pi);
+                await _redisGame.RemoveConnectionToRoomMapping(Context.ConnectionId);
+                return true;
+            });
+        }
+        catch (TimeoutException)
+        {
+
+        }
+        catch (Exception e)
+        {
+
+        }
         await base.OnDisconnectedAsync(exception);
     }
 
@@ -49,6 +70,7 @@ public class MultiplayerHub : Hub
                 PlayersInfo playersInfo = await _redisGame.GetPlayersInfo(roomId) ?? new();
                 playersInfo.AddPlayer(Context.ConnectionId);
                 await _redisGame.PublishPlayersInfo(roomId, playersInfo);
+                await _redisGame.AddConnectionToRoomMapping(Context.ConnectionId, roomId);
                 return true;
             });
             await Groups.AddToGroupAsync(Context.ConnectionId, roomId);

@@ -72,13 +72,14 @@ public class GameService
         }
     }
 
-    public void RemoveRoom(string roomId)
+    public async Task RemoveRoom(string roomId)
     {
         CancelGame(roomId);
         if (_activeRooms.TryRemove(roomId, out var _))
         {
             _logger.LogInformation("Removed a game for room {roomId}", roomId);
         }
+        await _synchronizer.RemoveSaved(roomId);
     }
 
     public async Task OnAnswersUpdated(string roomId, int roundId, RoundAnswers answers)
@@ -97,7 +98,11 @@ public class GameService
 
     public async Task OnPlayersUpdated(string roomId, PlayersInfo playersInfo)
     {
-
+        if (playersInfo.Count() == 0)
+        {
+            _logger.LogDebug("Room ID: {roomId} -- PlayersInfo count is 0, removing room", roomId);
+            await RemoveRoom(roomId);
+        }
     }
 
     public int CountRooms()

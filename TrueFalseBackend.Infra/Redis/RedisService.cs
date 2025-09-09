@@ -26,6 +26,10 @@ public interface IRoomSynchronizer
     Task PublishPlayersInfo(string roomId, PlayersInfo playersInfo);
     Task<RoundAnswers?> GetRoundAnswers(string roomId, int roundId);
     Task PublishRoundAnswers(string roomId, int round, RoundAnswers roundAnswers);
+    Task RemoveSaved(string roomId);
+    Task<string?> GetRoomForUser(string connectionId);
+    Task AddConnectionToRoomMapping(string connectionId, string roomId);
+    Task RemoveConnectionToRoomMapping(string connectionId);
 }
 
 public class RedisGame : IRoomSynchronizer
@@ -77,5 +81,32 @@ public class RedisGame : IRoomSynchronizer
         string answersJson = answers.ToJsonString();
         await _redisDb.Db.StringSetAsync(chan.ToString(), answersJson);
         await _redisDb.Subscriber.PublishAsync(chan, answersJson);
+    }
+
+    public async Task<string?> GetRoomForUser(string connectionId)
+    {
+        return await _redisDb.Db.StringGetAsync($"users:{connectionId}");
+    }
+
+    public async Task AddConnectionToRoomMapping(string connectionId, string roomId)
+    {
+        await _redisDb.Db.StringSetAsync($"users:{connectionId}", roomId);
+    }
+
+    public async Task RemoveConnectionToRoomMapping(string connectionId)
+    {
+        await _redisDb.Db.KeyDeleteAsync($"users:{connectionId}");
+    }
+
+    public async Task RemoveSaved(string roomId)
+    {
+        await _redisDb.Db.KeyDeleteAsync($"states:{roomId}");
+        await _redisDb.Db.KeyDeleteAsync($"players:{roomId}");
+        var endpoint = _redisDb.Connection.GetEndPoints().First();
+        var server = _redisDb.Connection.GetServer(endpoint);
+        foreach (var key in server.Keys(pattern: $"answers:{roomId}:*", pageSize: 100))
+        {
+            await _redisDb.Db.KeyDeleteAsync(key);
+        }
     }
 }

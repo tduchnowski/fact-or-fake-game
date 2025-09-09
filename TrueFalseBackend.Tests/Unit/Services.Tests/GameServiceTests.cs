@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using System.Collections.Concurrent;
 using TrueFalseBackend.Models;
 using TrueFalseBackend.Infra.Redis;
@@ -81,7 +83,6 @@ public class InMemoryQuestionProvider : IQuestionProvider
 
     public Task<List<Question>> GetNext(int size)
     {
-        Console.WriteLine("Question Provider GetNext");
         size = Math.Min(size, _questions.Count);
         Random r = new();
         return Task.FromResult(_questions.OrderBy(q => r.Next(0, _questions.Count)).Take(size).ToList());
@@ -102,6 +103,7 @@ public class GameServiceTests
     private InMemoryRoomSync _roomSync;
     private InMemoryQuestionProvider _questionProvider;
     private readonly IRedisLockerHelper _fakeLocker = new FakeRedisLocker();
+    private readonly ILogger<GameService> _nullLogger = NullLogger<GameService>.Instance;
 
     private readonly string _defaultRoomId = "123";
     private readonly RoomState _initialRoomState = new();
@@ -110,7 +112,7 @@ public class GameServiceTests
     {
         _roomSync = new();
         _questionProvider = new();
-        _gameService = new GameService(_questionProvider, _roomSync, _fakeLocker);
+        _gameService = new GameService(_questionProvider, _roomSync, _fakeLocker, _nullLogger);
         _initialRoomState.RoundsNumber = 3;
         _initialRoomState.RoundTimeoutSeconds = 3;
         _initialRoomState.MidRoundDelay = 0;
@@ -252,7 +254,8 @@ public class GameServiceTests
     {
         string roomId = "roomId";
         await _roomSync.PublishRoomState(roomId, _initialRoomState.Clone());
-        TrueFalseGame tfg = new TrueFalseGame(roomId, _questionProvider, _roomSync);
+
+        TrueFalseGame tfg = new TrueFalseGame(roomId, _questionProvider, _roomSync, _nullLogger);
         await tfg.StartGame();
         bool status = tfg.GameTask!.Status is TaskStatus.Running or TaskStatus.WaitingForActivation;
         Assert.True(status);
@@ -276,7 +279,7 @@ public class GameServiceTests
         rs.RoundTimeoutSeconds = 0;
         rs.CurrentRound = new() { Id = initialRoundId, RoundQuestion = new() };
         await _roomSync.PublishRoomState(roomId, rs);
-        TrueFalseGame tfg = new TrueFalseGame(roomId, _questionProvider, _roomSync);
+        TrueFalseGame tfg = new TrueFalseGame(roomId, _questionProvider, _roomSync, _nullLogger);
         await tfg.StartNewRound(rs);
         Assert.Equal(initialRoundId + 1, tfg.CurrentRound);
         RoomState? rsAfter = await _roomSync.GetRoomState(roomId);
@@ -292,7 +295,7 @@ public class GameServiceTests
         rs.RoundTimeoutSeconds = 5;
         rs.MidRoundDelay = 0;
         rs.CurrentRound = new() { Id = roundId, RoundQuestion = new() };
-        TrueFalseGame tfg = new TrueFalseGame(roomId, _questionProvider, _roomSync);
+        TrueFalseGame tfg = new TrueFalseGame(roomId, _questionProvider, _roomSync, _nullLogger);
         TaskCompletionSource tcs = new TaskCompletionSource();
         Task t = Task.Run(async () =>
         {
@@ -320,7 +323,7 @@ public class GameServiceTests
         ra.AddAnswer(playerId, "True");
         await _roomSync.PublishPlayersInfo(roomId, pi);
         await _roomSync.PublishRoundAnswers(roomId, roundId, ra);
-        TrueFalseGame tfg = new TrueFalseGame(roomId, _questionProvider, _roomSync);
+        TrueFalseGame tfg = new TrueFalseGame(roomId, _questionProvider, _roomSync, _nullLogger);
         await tfg.UpdateScores(q, roundId);
         pi = await _roomSync.GetPlayersInfo(roomId);
         Player? p = pi!.GetPlayer(playerId);
@@ -345,7 +348,7 @@ public class GameServiceTests
         string roomId = "roomId";
         RoomState rs = new() { RoundsNumber = numberOfRounds, RoundTimeoutSeconds = 0, MidRoundDelay = 0 };
         await _roomSync.PublishRoomState(roomId, rs);
-        TrueFalseGame tfg = new TrueFalseGame(roomId, _questionProvider, _roomSync);
+        TrueFalseGame tfg = new TrueFalseGame(roomId, _questionProvider, _roomSync, _nullLogger);
         await tfg.StartGameLoop(rs);
         rs = await _roomSync.GetRoomState(roomId);
         Assert.Equal("finished", rs!.Stage);

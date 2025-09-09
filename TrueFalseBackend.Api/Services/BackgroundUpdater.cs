@@ -54,6 +54,7 @@ public class RedisStateUpdater : IHostedService
                     string[] channelParts = channel.ToString().Split(':');
                     string roomId = channelParts[1];
                     await _hubContext.Clients.Group(roomId).SendAsync("players", message);
+                    await _gameService.OnPlayersUpdated(roomId, JsonSerializer.Deserialize<PlayersInfo>(message));
                     _logger.LogDebug("Broadcasted PlayersInfo: {message}", message);
                 });
             }
