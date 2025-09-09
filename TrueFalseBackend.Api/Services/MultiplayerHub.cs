@@ -3,10 +3,6 @@ using TrueFalseBackend.Models;
 using TrueFalseBackend.Infra.Redis;
 using TrueFalseBackend.Services;
 
-// this Hub is handling actual games of users its
-// role is to create RoomStates and publish it on a
-// Redis channel, after which it gets processed 
-// further
 public class MultiplayerHub : Hub
 {
     private readonly IRoomSynchronizer _redisGame;
@@ -53,7 +49,6 @@ public class MultiplayerHub : Hub
         catch (Exception e)
         {
             _logger.LogError("Error while deleting room. {e}", e);
-
         }
         await base.OnDisconnectedAsync(exception);
     }
@@ -70,7 +65,15 @@ public class MultiplayerHub : Hub
             }
             bool ok = await _redisLocker.ExecuteWithLock($"lock:players:{roomId}", async () =>
             {
-                PlayersInfo playersInfo = await _redisGame.GetPlayersInfo(roomId) ?? new();
+                PlayersInfo playersInfo;
+                try
+                {
+                    playersInfo = await _redisGame.GetPlayersInfo(roomId);
+                }
+                catch (RedisKeyMissing)
+                {
+                    playersInfo = new();
+                }
                 playersInfo.AddPlayer(Context.ConnectionId);
                 await _redisGame.PublishPlayersInfo(roomId, playersInfo);
                 await _redisGame.AddConnectionToRoomMapping(Context.ConnectionId, roomId);
@@ -85,14 +88,19 @@ public class MultiplayerHub : Hub
             _logger.LogError("JoinRoom roomId = {roomId}. Acquiring lock timed out", roomId);
             return OperationResult.Fail("Internal server error");
         }
+        catch (RedisDbException ex)
+        {
+            _logger.LogError(ex, "Database exception");
+            return OperationResult.Fail("Internal server error");
+        }
         catch (Exception e)
         {
-            _logger.LogError("JoinRoom roomId = {roomId}. Exception {e}", roomId, e);
+            _logger.LogError(e, "Unexpected exception in JoinRoom roomId = {roomId}", roomId);
             return OperationResult.Fail("Internal server error");
         }
     }
 
-    public async Task<RoomState?> GetState(string roomId)
+    public async Task<RoomState> GetState(string roomId)
     {
         return await _redisGame.GetRoomState(roomId);
     }
@@ -103,12 +111,7 @@ public class MultiplayerHub : Hub
         {
             bool ok = await _redisLocker.ExecuteWithLock($"lock:players:{roomId}", async () =>
             {
-                PlayersInfo? playersInfo = await _redisGame.GetPlayersInfo(roomId);
-                if (playersInfo == null)
-                {
-                    _logger.LogWarning("SetName roomId = {roomId}, name = {name}. No PlayerInfo found", roomId, name);
-                    return false;
-                }
+                PlayersInfo playersInfo = await _redisGame.GetPlayersInfo(roomId);
                 Player? p = playersInfo.GetPlayer(Context.ConnectionId);
                 if (p == null)
                 {
@@ -153,18 +156,21 @@ public class MultiplayerHub : Hub
         {
             bool ok = await _redisLocker.ExecuteWithLock($"lock:answers:{roomId}:{round}", async () =>
             {
-                RoomState? roomState = await _redisGame.GetRoomState(roomId);
-                if (roomState == null)
-                {
-                    _logger.LogWarning("SendAnswer roomId = {roomId}, round = {round}, answer = {answer}", roomId, round, answer);
-                    return false;
-                }
+                RoomState roomState = await _redisGame.GetRoomState(roomId);
                 if (roomState.CurrentRound.Id != round)
                 {
                     _logger.LogWarning("SendAnswer roomId = {roomId}, round = {round}, answer = {answer}. Wrong round.", roomId, round, answer);
                     return false;
                 }
-                RoundAnswers roundAnswers = await _redisGame.GetRoundAnswers(roomId, round) ?? new();
+                RoundAnswers roundAnswers;
+                try
+                {
+                    roundAnswers = await _redisGame.GetRoundAnswers(roomId, round);
+                }
+                catch (RedisKeyMissing)
+                {
+                    roundAnswers = new();
+                }
                 roundAnswers.AddAnswer(Context.ConnectionId, answer);
                 await _redisGame.PublishRoundAnswers(roomId, round, roundAnswers);
                 return true;
@@ -180,7 +186,7 @@ public class MultiplayerHub : Hub
         }
         catch (Exception e)
         {
-            _logger.LogError("SendAnswer roomId = {roomId}, round = {round}, answer = {answer}. Exception {e}", roomId, round, answer, e);
+            _logger.LogError(e, "Unexpected exception SendAnswer roomId = {roomId}, round = {round}, answer = {answer}", roomId, round, answer);
             return OperationResult.Fail("Internal server error");
         }
     }

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using StackExchange.Redis;
 using TrueFalseBackend.Models;
@@ -20,11 +21,11 @@ public class RedisDb
 
 public interface IRoomSynchronizer
 {
-    Task<RoomState?> GetRoomState(string roomId);
+    Task<RoomState> GetRoomState(string roomId);
     Task PublishRoomState(string roomId, RoomState roomState);
-    Task<PlayersInfo?> GetPlayersInfo(string roomId);
+    Task<PlayersInfo> GetPlayersInfo(string roomId);
     Task PublishPlayersInfo(string roomId, PlayersInfo playersInfo);
-    Task<RoundAnswers?> GetRoundAnswers(string roomId, int roundId);
+    Task<RoundAnswers> GetRoundAnswers(string roomId, int roundId);
     Task PublishRoundAnswers(string roomId, int round, RoundAnswers roundAnswers);
     Task RemoveSaved(string roomId);
     Task<string?> GetRoomForUser(string connectionId);
@@ -32,55 +33,66 @@ public interface IRoomSynchronizer
     Task RemoveConnectionToRoomMapping(string connectionId);
 }
 
+public class RedisDbException : Exception
+{
+    public RedisDbException(string message, Exception innerException) : base(message, innerException)
+    {
+    }
+}
+
+public class RedisKeyMissing : Exception
+{
+    public RedisKeyMissing(string message) : base(message)
+    {
+    }
+}
+
+public class NullResultError : Exception
+{
+    public NullResultError(string message) : base(message)
+    {
+    }
+}
+
 public class RedisGame : IRoomSynchronizer
 {
     private readonly RedisDb _redisDb;
+    private readonly ILogger<RedisGame> _logger;
 
-    public RedisGame(RedisDb redisDb) => _redisDb = redisDb;
-
-    public async Task<RoomState?> GetRoomState(string roomId)
+    public RedisGame(RedisDb redisDb, ILogger<RedisGame> logger)
     {
-        string? quizStateJson = await _redisDb.Db.StringGetAsync($"states:{roomId}");
-        if (quizStateJson == null) return null;
-        return JsonSerializer.Deserialize<RoomState>(quizStateJson);
+        _redisDb = redisDb;
+        _logger = logger;
+    }
+
+    public async Task<RoomState> GetRoomState(string roomId)
+    {
+        return await GetObject<RoomState>($"states:{roomId}");
     }
 
     public async Task PublishRoomState(string roomId, RoomState roomState)
     {
-        RedisChannel chan = new RedisChannel($"states:{roomId}", RedisChannel.PatternMode.Literal);
-        string roomStateJson = roomState.ToJsonString();
-        await _redisDb.Db.StringSetAsync(chan.ToString(), roomStateJson);
-        await _redisDb.Subscriber.PublishAsync(chan, roomStateJson);
+        await PublishObject($"states:{roomId}", roomState);
     }
 
-    public async Task<PlayersInfo?> GetPlayersInfo(string roomId)
+    public async Task<PlayersInfo> GetPlayersInfo(string roomId)
     {
-        string? playersInfoJson = await _redisDb.Db.StringGetAsync($"players:{roomId}");
-        if (playersInfoJson == null) return null;
-        return JsonSerializer.Deserialize<PlayersInfo>(playersInfoJson);
+        return await GetObject<PlayersInfo>($"players:{roomId}");
     }
 
     public async Task PublishPlayersInfo(string roomId, PlayersInfo playersInfo)
     {
-        RedisChannel chan = new RedisChannel($"players:{roomId}", RedisChannel.PatternMode.Literal);
-        string playersInfoJson = playersInfo.ToJsonString();
-        await _redisDb.Db.StringSetAsync(chan.ToString(), playersInfoJson);
-        await _redisDb.Subscriber.PublishAsync(chan, playersInfoJson);
+        await PublishObject($"players:{roomId}", playersInfo);
     }
 
-    public async Task<RoundAnswers?> GetRoundAnswers(string roomId, int roundId)
+    public async Task<RoundAnswers> GetRoundAnswers(string roomId, int roundId)
     {
-        string? roundAnswers = await _redisDb.Db.StringGetAsync($"answers:{roomId}:{roundId}");
-        if (roundAnswers == null) return null;
-        return JsonSerializer.Deserialize<RoundAnswers>(roundAnswers);
+        return await GetObject<RoundAnswers>($"answers:{roomId}:{roundId}");
     }
 
     public async Task PublishRoundAnswers(string roomId, int roundId, RoundAnswers answers)
     {
-        RedisChannel chan = new RedisChannel($"answers:{roomId}:{roundId}", RedisChannel.PatternMode.Literal);
-        string answersJson = answers.ToJsonString();
-        await _redisDb.Db.StringSetAsync(chan.ToString(), answersJson);
-        await _redisDb.Subscriber.PublishAsync(chan, answersJson);
+        await PublishObject($"answers:{roomId}:{roundId}", answers);
     }
 
     public async Task<string?> GetRoomForUser(string connectionId)
@@ -96,6 +108,38 @@ public class RedisGame : IRoomSynchronizer
     public async Task RemoveConnectionToRoomMapping(string connectionId)
     {
         await _redisDb.Db.KeyDeleteAsync($"users:{connectionId}");
+    }
+
+    private async Task<T> GetObject<T>(string key)
+    {
+        try
+        {
+            string? quizStateJson = await _redisDb.Db.StringGetAsync(key);
+            if (quizStateJson == null) throw new RedisKeyMissing($"key '{key}' not present");
+            T obj = JsonSerializer.Deserialize<T>(quizStateJson) ?? throw new NullResultError($"serialization resulted in a null");
+            return obj;
+        }
+        catch (Exception ex) when (ex is RedisConnectionException or RedisTimeoutException or JsonException or NullResultError)
+        {
+            _logger.LogError(ex, "failed to get an object for key {key}", key);
+            throw new RedisDbException($"GetObject({key}) failed", ex);
+        }
+    }
+
+    private async Task PublishObject(string channel, JsonStringer obj)
+    {
+        try
+        {
+            RedisChannel chan = new RedisChannel(channel, RedisChannel.PatternMode.Literal);
+            string roomStateJson = obj.ToJsonString();
+            await _redisDb.Db.StringSetAsync(chan.ToString(), roomStateJson);
+            await _redisDb.Subscriber.PublishAsync(chan, roomStateJson);
+        }
+        catch (Exception ex) when (ex is RedisConnectionException or RedisTimeoutException)
+        {
+            _logger.LogError(ex, "failed to publish object in a channel {channel}", channel);
+            throw new RedisDbException($"PublishObject({channel})", ex);
+        }
     }
 
     public async Task RemoveSaved(string roomId)

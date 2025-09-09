@@ -58,7 +58,7 @@ public class GameService
         }
         catch (Exception e)
         {
-            _logger.LogError("Exception: {e}", e);
+            _logger.LogError(e, "failed to start a game");
             return false;
         }
     }

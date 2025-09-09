@@ -16,7 +16,7 @@ public class InMemoryRoomSync : IRoomSynchronizer
 
     public InMemoryRoomSync(bool throwsExceptions) => _throwsExceptions = throwsExceptions;
 
-    public Task<RoomState?> GetRoomState(string roomId)
+    public Task<RoomState> GetRoomState(string roomId)
     {
         return Task.FromResult(_roomStates[roomId]);
     }
@@ -28,7 +28,7 @@ public class InMemoryRoomSync : IRoomSynchronizer
         return Task.CompletedTask;
     }
 
-    public Task<PlayersInfo?> GetPlayersInfo(string roomId)
+    public Task<PlayersInfo> GetPlayersInfo(string roomId)
     {
         if (_throwsExceptions) throw new Exception("InMemoryRoomSync Exception");
         if (!_playerInfos.TryGetValue(roomId, out var pi))
@@ -43,7 +43,7 @@ public class InMemoryRoomSync : IRoomSynchronizer
         return Task.CompletedTask;
     }
 
-    public Task<RoundAnswers?> GetRoundAnswers(string roomId, int roundId)
+    public Task<RoundAnswers> GetRoundAnswers(string roomId, int roundId)
     {
         if (_throwsExceptions) throw new Exception("InMemoryRoomSync Exception");
         if (_roundAnswers.TryGetValue(roomId, out var ra))
@@ -67,6 +67,26 @@ public class InMemoryRoomSync : IRoomSynchronizer
             _roundAnswers[roomId] = [];
         }
         _roundAnswers[roomId][round] = roundAnswers;
+        return Task.CompletedTask;
+    }
+
+    public Task RemoveSaved(string roomId)
+    {
+        return Task.CompletedTask;
+    }
+
+    public Task<string?> GetRoomForUser(string connectionId)
+    {
+        return Task.FromResult<string?>(null);
+    }
+
+    public Task AddConnectionToRoomMapping(string connectionId, string roomId)
+    {
+        return Task.CompletedTask;
+    }
+
+    public Task RemoveConnectionToRoomMapping(string connectionId)
+    {
         return Task.CompletedTask;
     }
 }
@@ -199,7 +219,7 @@ public class GameServiceTests
         await _roomSync.PublishRoomState(_defaultRoomId, _initialRoomState.Clone());
         await _gameService.StartGame(_defaultRoomId);
         TrueFalseGame? game = _gameService.GetActiveRoom(_defaultRoomId);
-        _gameService.RemoveRoom(_defaultRoomId);
+        await _gameService.RemoveRoom(_defaultRoomId);
         Assert.Equal(0, _gameService.CountRooms());
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await game!.GameTask!);
         Assert.True(game!.GameTask!.IsCanceled);
@@ -223,7 +243,7 @@ public class GameServiceTests
         }
         Random r = new();
         List<string> idsToRemove = Enumerable.Range(1, numberOfGames).OrderBy(_ => r.Next()).Take(gamesToRemove).Select(i => $"room{i}").ToList();
-        foreach (string playerId in idsToRemove) _gameService.RemoveRoom(playerId);
+        foreach (string playerId in idsToRemove) await _gameService.RemoveRoom(playerId);
         Assert.Equal(numberOfGames - gamesToRemove, _gameService.CountRooms());
     }
 
@@ -245,7 +265,7 @@ public class GameServiceTests
         }
         Random r = new();
         List<string> idsToRemove = Enumerable.Range(1, numberOfGames).OrderBy(_ => r.Next()).Take(gamesToRemove).Select(i => $"room{i}").ToList();
-        Parallel.ForEach(idsToRemove, _gameService.RemoveRoom);
+        Parallel.ForEach(idsToRemove, async id => await _gameService.RemoveRoom(id));
         Assert.Equal(numberOfGames - gamesToRemove, _gameService.CountRooms());
     }
 
