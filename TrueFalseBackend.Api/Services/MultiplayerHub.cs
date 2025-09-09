@@ -43,13 +43,16 @@ public class MultiplayerHub : Hub
                 await _redisGame.RemoveConnectionToRoomMapping(Context.ConnectionId);
                 return true;
             });
+            if (!ok) _logger.LogWarning("Failed to delete a room {roomId}", roomId);
+            else _logger.LogInformation("Successfully deleted room {roomId}", roomId);
         }
         catch (TimeoutException)
         {
-
+            _logger.LogError("Lock timeout exception while deleting room");
         }
         catch (Exception e)
         {
+            _logger.LogError("Error while deleting room. {e}", e);
 
         }
         await base.OnDisconnectedAsync(exception);
