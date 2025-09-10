@@ -11,20 +11,23 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
-builder.Services.AddSingleton<IQuestionProvider>(sp =>
+if (builder.Environment.IsDevelopment())
 {
-    return new InMemoryQuestionProvider(new List<Question>
+    builder.Services.AddSingleton<IQuestionProvider>(sp =>
     {
-      new Question { Id = 1, Text = "Question 1", Answer = true },
-      new Question { Id = 2, Text = "Question 2", Answer = false},
-      new Question { Id = 3, Text = "Question 3", Answer = true },
-      new Question { Id = 4, Text = "Question 4", Answer = false},
-      new Question {Id = 5, Text = "Is Lerusha the most talented painter in the world?", Answer = true},
-      new Question {Id = 6, Text = "Is Tommy Boy 1.96m tall?", Answer = true},
-      new Question {Id = 7, Text = "Was Lerusha born in 2000?", Answer = true},
-      new Question {Id = 8, Text = "Is Lerusha super angry when she's hungry?", Answer = true}
+        List<Question> questions = Enumerable.Range(1, 100).Select(n => new Question { Id = n, Text = $"Question {n}", Answer = n % 2 == 0 }).ToList();
+        return new InMemoryQuestionProvider(questions);
     });
-});
+}
+else
+{
+    // TODO: replace it with a provider from a real db
+    builder.Services.AddSingleton<IQuestionProvider>(sp =>
+    {
+        List<Question> questions = Enumerable.Range(1, 100).Select(n => new Question { Id = n, Text = $"Question {n}", Answer = n % 2 == 0 }).ToList();
+        return new InMemoryQuestionProvider(questions);
+    });
+}
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<IConnectionMultiplexer>(sp => { return ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("Redis")); });
