@@ -10,7 +10,7 @@ using RedLockNet.SERedis.Configuration;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
 builder.Services.AddSingleton<IQuestionProvider>(sp =>
 {
     return new InMemoryQuestionProvider(new List<Question>
@@ -27,20 +27,17 @@ builder.Services.AddSingleton<IQuestionProvider>(sp =>
 });
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
-builder.Services.AddSingleton<IConnectionMultiplexer>(sp => { return ConnectionMultiplexer.Connect("localhost:6379"); });
+builder.Services.AddSingleton<IConnectionMultiplexer>(sp => { return ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("Redis")); });
 builder.Services.AddSingleton<IRoomSynchronizer, RedisGame>();
 builder.Services.AddSingleton<GameService>();
 builder.Services.AddSingleton<RedisDb>();
 builder.Services.AddSingleton(sp =>
 {
-
     var multiplexer = sp.GetRequiredService<IConnectionMultiplexer>();
-
     var endpoints = new List<RedLockMultiplexer>
     {
         new RedLockMultiplexer(multiplexer)
     };
-
     return RedLockFactory.Create(endpoints);
 });
 builder.Services.AddHostedService<RedisStateUpdater>();
