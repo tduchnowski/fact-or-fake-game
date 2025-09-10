@@ -1,0 +1,69 @@
+services:
+  truefalsebackend:
+    image: truefalsegame-server:latest
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Postgres: Host=db;Database=devdb;Username=devuser;Password=devpass
+      ConnectionStrings__Redis: redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  db:
+    image: postgres:latest
+    container_name: postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: devuser
+      POSTGRES_PASSWORD: devpass
+      POSTGRES_DB: devdb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready", "-d", "db_prod"]
+      interval: 30s
+      timeout: 60s
+      retries: 5
+      start_period: 60s
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin4-dev
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: adminpass
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+
+  redis:
+    image: redis:latest
+    container_name: redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: redisinsight-dev
+    depends_on:
+      redis:
+        condition: service_started
+    ports:
+      - "5540:5540"
+
+volumes:
+  postgres_data:
+  redis_data:

@@ -2,7 +2,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TrueFalseBackend.Models\TrueFalseBackend.Models.csproj" />
-    <ProjectReference Include="..\TrueFalseBackend.Shared\TrueFalseBackend.Shared.csproj" />
     <ProjectReference Include="..\TrueFalseBackend.Infra\TrueFalseBackend.Infra.csproj" />
   </ItemGroup>
 
