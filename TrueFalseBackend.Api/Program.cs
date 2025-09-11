@@ -49,6 +49,8 @@ builder.Services.AddSingleton<IRedisLockerHelper, RedisLocker>();
 var app = builder.Build();
 app.MapControllers();
 app.MapHub<MultiplayerHub>("/rooms");
+app.MapGet("/health/ready", () => Results.Ok("Ready"));
+app.MapGet("/health/live", () => Results.Ok("Alive"));
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

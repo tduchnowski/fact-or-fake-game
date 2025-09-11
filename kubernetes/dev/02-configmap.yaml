@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: truefalsegame-config
+  namespace: truefalsegame
+data:
+  ASPNETCORE_ENVIRONMENT: "Production"
+  ConnectionStrings__Redis: "redis:6379"
+  ConnectionStrings__Postgres: "Host=db;Database=devdb;Username=devuser;Password=$(POSTGRESS_PASSWORD)"
