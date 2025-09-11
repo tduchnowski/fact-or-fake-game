@@ -3,6 +3,42 @@
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
+[Dd]ebug/
+[Rr]elease/
+*.log
+*.pdb
+*.ilk
+*.aps
+*.bsc
+*.sbr
+*.res
+*.pch
+*.idb
+*.opt
+*.ncb
+*.lib
+*.exp
+*.map
+*.obj
+*.exe
+*.dll
+*.winmd
+*.appx
+*.msi
+*.msp
+*.cer
+*.pfx
+*.snk
+*.vmdk
+*.vhd
+*.vdi
+*.iso
+*.img
+*.vbox
+*.vmx
+*.vmsd
+*.vmss
+*.vmem
 
 # Visual Studio
 .vs/
@@ -10,19 +46,24 @@
 *.suo
 *.userosscache
 *.sln.docstates
+*.userprefs
+*.VC.db
+*.opendb
 
 # Rider
 .idea/
 *.sln.iml
 
 # NuGet
+.nuget/
 *.nupkg
 *.snupkg
 packages/
 *.nuspec
-project.lock.json
-project.fragment.lock.json
 artifacts/
+*.lock.json
+NuGet.Config
+nuget.config
 
 # ASP.NET
 appsettings.Development.json
@@ -51,3 +92,16 @@ Thumbs.db
 # Publish output
 publish/
 
+# Blazor WebAssembly specific
+wwwroot/dist/
+wwwroot/wasm/
+wwwroot/_framework/
+wwwroot/_content/
+wwwroot/service-worker.js
+wwwroot/service-worker.published.js
+
+# node.js
+node_modules/
+
+# DotNet tools
+.config/dotnet-tools.json
