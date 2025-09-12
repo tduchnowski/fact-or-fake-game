@@ -1,0 +1,147 @@
+@page "/solo"
+@inject NavigationManager Navigation
+@using MudBlazor
+@using TrueFalseWebApp.Models
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="d-flex flex-column align-center justify-center" Style="height: 100vh;">
+    @if (currentView == GameView.NotStarted)
+    {
+        <MudStack Class="align-center mb-4">
+            <MudText Typo="Typo.h4">Solo Mode</MudText>
+            <MudText Typo="Typo.body1" Class="mt-2">
+                Answer as many questions as possible. You can make 5 mistakes. Good luck!
+            </MudText>
+        </MudStack>
+        <MudButton Variant="Variant.Filled" Class="mud-theme-primary mt-4" OnClick="StartGame">
+            Start
+        </MudButton>
+    }
+    else if (currentView == GameView.InProgress)
+    {
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4"
+            Style="width: 100%;">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+                <MudIcon Icon="@Icons.Material.Filled.Scoreboard" Title="Score" Size="Size.Medium" Color="Color.Primary" />
+
+                <MudText Typo="Typo.h5">@score</MudText>
+            </MudStack>
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+                <MudIcon Icon="@Icons.Material.Filled.Favorite" Title="Hearts" Size="Size.Medium" Color="Color.Error" />
+
+                <MudText Typo="Typo.h5">@lives</MudText>
+            </MudStack>
+        </MudStack>
+
+        <MudPaper Class="pa-4 mb-4" Elevation="2">
+            <MudText Typo="Typo.h6">@currentQuestion.Text</MudText>
+        </MudPaper>
+        <MudStack Row="true" Spacing="2">
+            <MudButton Variant="Variant.Filled" Class="@buttonTrueClass" Color="Color.Primary"
+                OnClick="@(() => SendAnswer(true))">True</MudButton>
+            <MudButton Variant="Variant.Filled" Class="@buttonFalseClass" Color="Color.Primary"
+                OnClick="@(() => SendAnswer(false))">False</MudButton>
+        </MudStack>
+    }
+    else if (currentView == GameView.Results)
+    {
+        <MudText Typo="Typo.h4" Class="mb-2">Game Over!</MudText>
+        <MudText Typo="Typo.h6">Your final score is: @score</MudText>
+        <MudButton Variant="Variant.Filled" Class="mud-theme-primary mt-4" OnClick="StartGame">
+            Play Again
+        </MudButton>
+    }
+    <MudIconButton Icon="@Icons.Material.Filled.Home" Title="Home" Size="Size.Large" Color="Color.Inherit"
+        Style="position: absolute; bottom: 16px; left: 16px; cursor: pointer;"
+        OnClick="@(() => Navigation.NavigateTo("/"))" />
+</MudContainer>
+
+@code {
+    private enum GameView { NotStarted, InProgress, Results };
+    private GameView currentView = GameView.NotStarted;
+    private int lives = 5;
+    private int score = 0;
+    private Question currentQuestion = new Question(-1, "", true);
+    private int currId = 0;
+    private bool midRound = false;
+    private int clicksCounter = 0;
+    private string buttonTrueClass = "";
+    private string buttonFalseClass = "";
+
+    private async Task StartGame()
+    {
+        lives = 5;
+        score = 0;
+        currId = 0;
+        currentQuestion = await GetNextQuestion();
+        ResetButtonClasses();
+        midRound = false;
+        currentView = GameView.InProgress;
+    }
+
+    private async Task SendAnswer(bool answer)
+    {
+        if (midRound) return;
+        midRound = true;
+        HighlightAnswer(answer);
+        UpdateScore(answer);
+        await Task.Delay(1500);
+        if (lives <= 0)
+        {
+            currentView = GameView.Results;
+            return;
+        }
+        currentQuestion = await GetNextQuestion();
+        ResetButtonClasses();
+        midRound = false;
+    }
+
+    private void UpdateScore(bool answer)
+    {
+        if (answer == currentQuestion.Answer)
+        {
+            score++;
+        }
+        else
+        {
+            lives--;
+        }
+    }
+
+    private void HighlightAnswer(bool answer)
+    {
+        if (answer == currentQuestion.Answer)
+        {
+            if (answer)
+            {
+                buttonTrueClass = "correct-answer";
+            }
+            else
+            {
+                buttonFalseClass = "correct-answer";
+            }
+        }
+        else
+        {
+            if (answer)
+            {
+                buttonTrueClass = "wrong-answer";
+            }
+            else
+            {
+                buttonFalseClass = "wrong-answer";
+            }
+        }
+    }
+
+    private void ResetButtonClasses()
+    {
+        buttonTrueClass = "";
+        buttonFalseClass = "";
+    }
+
+    private Task<Question> GetNextQuestion()
+    {
+        return Task.FromResult(new Question(++currId, $"Question {currId}", currId % 2 == 0));
+    }
+
+}

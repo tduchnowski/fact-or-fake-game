@@ -1,0 +1,57 @@
+<MudDialog>
+    <DialogContent>
+        @if (string.IsNullOrEmpty(roomCode))
+        {
+            <MudStack Class="align-center">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" Class="my-4" />
+                <MudText Typo="Typo.subtitle2">Creating your room...</MudText>
+            </MudStack>
+        }
+        else
+        {
+            <MudStack Row="true" Class="align-center mb-4" Justify="Justify.SpaceBetween">
+                <MudText Typo="Typo.subtitle2">Room code: <strong>@roomCode</strong></MudText>
+                <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Color="Color.Primary"
+                    OnClick="(() => CopyToClipboard(roomCode))" />
+            </MudStack>
+            <MudStack Row="true" Class="align-center mb-4">
+                <MudText Typo="Typo.subtitle2">Invitation link: <strong>@GetInviteLink()</strong></MudText>
+                <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Color="Color.Primary"
+                    OnClick="(() => CopyToClipboard(GetInviteLink()))" />
+            </MudStack>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" OnClick="Submit">Join</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; }
+    private string roomCode = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.Delay(2000);
+        roomCode = Guid.NewGuid().ToString().Substring(0, 6).ToUpper();
+        await base.OnInitializedAsync();
+    }
+
+    private void Submit() => MudDialog.Close(DialogResult.Ok(true));
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private string GetInviteLink()
+    {
+        // Logic to generate invite link
+        return $"https://example.com/invite/{roomCode}";
+    }
+
+    private void CopyToClipboard(string text)
+    {
+        // Logic to copy text to clipboard
+        Console.WriteLine($"Copied to clipboard: {text}");
+    }
+
+}

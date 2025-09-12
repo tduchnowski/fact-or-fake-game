@@ -1,16 +1,14 @@
 ﻿@inherits LayoutComponentBase
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
+<MudThemeProvider />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
 
-        <article class="content px-4">
+<MudLayout>
+    <MudMainContent Class="d-flex justify-center align-center p-0 m-0" Style="min-height: 100vh;">
+        <MudContainer Class="d-flex justify-center align-center" Style="height: 100vh; width: 100vw;">
             @Body
-        </article>
-    </main>
-</div>
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>

@@ -1,9 +1,8 @@
 NEXT:
-  - connection ids to roomId mapping
-  - remove a room if 0 players left
   - fetch questions before starting a game instead of fetching questions one by one every round
   - integration tests
   - end to end tests (client simulations)
   - maximum performance logging
-  - limits for number of rounds, mid round delays, round timeouts
   - consider expiration data for information saved in Redis in case the server fails to do the cleanup
+  - change the logic of room code generation
+  - prevent collisions in room generation

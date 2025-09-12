@@ -1,7 +1,26 @@
 ﻿@page "/"
+@inject NavigationManager Navigation
+@using MudBlazor
 
-<PageTitle>Home</PageTitle>
+<MudContainer Class="d-flex align-center justify-center" Style="height: 100vh; width: 100vw;">
+    <MudStack Class="align-center">
+        <MudButton Variant="Variant.Filled" Class="mud-theme-primary" OnClick="StartSoloGame">
+            Play Solo
+        </MudButton>
+        <MudButton Variant="Variant.Filled" Class="mud-theme-primary" OnClick="StartMultiplayerGame">
+            Play With Friends
+        </MudButton>
+    </MudStack>
+</MudContainer>
 
-<h1>Hello, world!</h1>
+@code {
+    private void StartSoloGame()
+    {
+        Navigation.NavigateTo("solo");
+    }
 
-Welcome to your new app.
+    private void StartMultiplayerGame()
+    {
+        Navigation.NavigateTo("multiplayer");
+    }
+}
