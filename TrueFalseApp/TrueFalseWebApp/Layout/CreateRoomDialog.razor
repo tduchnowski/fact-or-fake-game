@@ -22,7 +22,12 @@
         }
     </DialogContent>
     <DialogActions>
-        <MudButton Color="Color.Primary" OnClick="Submit">Join</MudButton>
+        @if (!string.IsNullOrEmpty(roomCode))
+        {
+            <MudContainer Class="d-flex align-center justify-center">
+                <MudButton Color="Color.Primary" OnClick="Submit">Join</MudButton>
+            </MudContainer>
+        }
     </DialogActions>
 </MudDialog>
 
