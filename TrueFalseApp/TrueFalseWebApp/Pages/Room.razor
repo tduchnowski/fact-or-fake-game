@@ -1,0 +1,45 @@
+@page "/multiplayer/{RoomCode}"
+@inject NavigationManager Navigation
+@using System.Collections.Concurrent
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="d-flex flex-column align-center justify-center" Style="height: 100vh;">
+    @if (currentView == GameView.Loading)
+    {
+        <MudStack Class="align-center">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" Class="my-4" />
+            <MudText Typo="Typo.subtitle2">Loading room...</MudText>
+        </MudStack>
+    }
+    else if (currentView == GameView.NotStarted)
+    {
+
+    }
+    else if (currentView == GameView.InProgress)
+    {
+
+
+    }
+    else if (currentView == GameView.Results)
+    {
+
+    }
+    <MudIconButton Icon="@Icons.Material.Filled.Home" Title="Home" Size="Size.Large" Color="Color.Inherit"
+        Style="position: absolute; bottom: 16px; left: 16px; cursor: pointer;"
+        OnClick="@(() => Navigation.NavigateTo("/"))" />
+</MudContainer>
+
+@code {
+    [Parameter]
+    public string RoomCode { get; set; }
+
+    private enum GameView { Loading, NotStarted, InProgress, Results };
+    private GameView currentView = GameView.Loading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.Delay(2000);
+        currentView = GameView.NotStarted;
+        await base.OnInitializedAsync();
+    }
+
+}

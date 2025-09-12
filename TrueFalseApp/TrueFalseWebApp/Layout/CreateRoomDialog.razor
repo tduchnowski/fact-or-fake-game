@@ -1,3 +1,4 @@
+@inject NavigationManager Navigation
 <MudDialog>
     <DialogContent>
         @if (string.IsNullOrEmpty(roomCode))
@@ -25,7 +26,8 @@
         @if (!string.IsNullOrEmpty(roomCode))
         {
             <MudContainer Class="d-flex align-center justify-center">
-                <MudButton Color="Color.Primary" OnClick="Submit">Join</MudButton>
+                <MudButton Color="Color.Primary" OnClick="@(() => Navigation.NavigateTo($"/multiplayer/{roomCode}"))">Join
+                </MudButton>
             </MudContainer>
         }
     </DialogActions>
@@ -43,8 +45,6 @@
         await base.OnInitializedAsync();
     }
 
-    private void Submit() => MudDialog.Close(DialogResult.Ok(true));
-
     private void Cancel() => MudDialog.Cancel();
 
     private string GetInviteLink()
@@ -58,5 +58,4 @@
         // Logic to copy text to clipboard
         Console.WriteLine($"Copied to clipboard: {text}");
     }
-
 }
