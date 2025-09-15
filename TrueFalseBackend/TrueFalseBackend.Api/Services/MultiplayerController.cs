@@ -24,14 +24,14 @@ public class RestController : ControllerBase
     {
         object result = new
         {
-            status = "success",
-            questions = await _questionProvider.GetNext(size)
+            Status = "success",
+            Content = await _questionProvider.GetNext(size)
         };
         return Ok(result);
     }
 
     [HttpGet("createRoom")]
-    public async Task<IActionResult> CreateRoom([FromQuery] int roundsNum, [FromQuery][Range(5, 20)] int roundTimeout, [FromQuery][Range(1, 5)] double midRoundDelay)
+    public async Task<IActionResult> CreateRoom([FromQuery][Range(1, 50)] int roundsNum, [FromQuery][Range(5, 20)] int roundTimeout, [FromQuery][Range(1, 5)] double midRoundDelay = 1.5)
     {
         byte[] code = new byte[8];
         RandomNumberGenerator.Fill(code);
@@ -39,6 +39,6 @@ public class RestController : ControllerBase
         roomId = roomId.Replace("+", "-").Replace("/", "_").TrimEnd('=');
         RoomState initialRoomState = new() { RoundsNumber = roundsNum, RoundTimeoutSeconds = roundTimeout, MidRoundDelay = midRoundDelay };
         await _roomSync.PublishRoomState(roomId, initialRoomState);
-        return Ok(new { status = "success", roomId });
+        return Ok(new { Status = "success", Content = roomId });
     }
 }

@@ -158,21 +158,51 @@ public class TrueFalseGame
         _logger.LogDebug("StartNewRound state = {state}", state.ToJsonString());
         _timer = new RoundTimer(state.RoundTimeoutSeconds);
         if (state.CurrentRound == null) state.CurrentRound = new() { Id = 0, RoundQuestion = new() };
-        List<Question> q = await _questionProvider.GetNext(1);
-        if (q.Count == 0) throw new Exception("Couldn't fetch the questions");
-        state.AdvanceToNextRound(q[0]);
-        CurrentRound = state.CurrentRound.Id;
-        await _synchronizer.PublishRoomState(_roomId, state);
-        await _timer.Start();
-        await UpdateScores(q[0], CurrentRound);
-        await Task.Delay((int)(state.MidRoundDelay * 1000));
+        try
+        {
+            List<Question> q = await _questionProvider.GetNext(1);
+            if (q.Count == 0) throw new Exception("Couldn't fetch the questions");
+            state.AdvanceToNextRound(q[0]);
+            CurrentRound = state.CurrentRound.Id;
+            await _synchronizer.PublishRoomState(_roomId, state);
+            await _timer.Start();
+            await UpdateScores(q[0], CurrentRound);
+            await Task.Delay((int)(state.MidRoundDelay * 1000));
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "error during a round");
+        }
     }
 
     public async Task UpdateScores(Question q, int roundId)
     {
-        PlayersInfo? playersInfo = await _synchronizer.GetPlayersInfo(_roomId);
-        RoundAnswers? roundAnswers = await _synchronizer.GetRoundAnswers(_roomId, roundId);
-        if (playersInfo == null || roundAnswers == null) return;
+        PlayersInfo playersInfo;
+        RoundAnswers roundAnswers;
+        try
+        {
+            playersInfo = await _synchronizer.GetPlayersInfo(_roomId);
+            roundAnswers = await _synchronizer.GetRoundAnswers(_roomId, roundId);
+        }
+        catch (RedisKeyMissing ex)
+        {
+            // nobody managed to send answers, no point in updating anything
+            _logger.LogInformation(ex, "skipping updating scores for room {roomId}, round {roundId}", _roomId, roundId);
+            return;
+        }
+        catch (RedisDbException ex)
+        {
+            _logger.LogError(ex, "couldn't update the scores for room {roomId}, round {roundId}", _roomId, roundId);
+            // TODO: need to think about what to do in this case, cancel the game or what if there's a problem counting
+            // scores for one round?
+            return;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "unexpected exception when updating scores for room {roomId}, round {roundId}", _roomId, roundId);
+            return;
+        }
+        // TODO: use a lock here
         foreach (var (playerId, answer) in roundAnswers.PlayersAnswers)
         {
             if (answer == q.Answer) playersInfo.Players[playerId].Score++;

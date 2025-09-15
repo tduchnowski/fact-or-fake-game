@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+using Microsoft.AspNetCore.SignalR.Client;
 using MudBlazor.Services;
+using TrueFalseWebApp.Shared;
 
 using TrueFalseWebApp;
 
@@ -8,6 +10,51 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
+builder.Services.AddScoped<TelegramInitData>();
+var config = builder.Configuration;
+string apiBaseUrl = config["TrueFalseApi:RestApi"] ?? throw new InvalidOperationException("API base URL is not configured.");
+string hubUrl = config["TrueFalseApi:HubUrl"] ?? throw new InvalidOperationException("Hub URL is not configured.");
+
+builder.Services.AddScoped(sp =>
+{
+    var tgInitData = sp.GetRequiredService<TelegramInitData>();
+    var initDataString = tgInitData.GetInitDataString();
+    Console.WriteLine($"Init data: {initDataString}");
+
+    HttpClient client = new HttpClient
+    {
+        BaseAddress = new Uri(apiBaseUrl)
+    };
+    if (!string.IsNullOrEmpty(initDataString))
+    {
+        client.DefaultRequestHeaders.Add("Authorization", $"tma {initDataString}");
+    }
+    return client;
+});
+
+builder.Services.AddTransient(sp =>
+{
+    var tgInitData = sp.GetRequiredService<TelegramInitData>();
+    var initDataString = tgInitData.GetInitDataString();
+    Console.WriteLine($"Init data: {initDataString}");
+    HubConnectionBuilder connectionBuilder = new HubConnectionBuilder();
+    if (!string.IsNullOrEmpty(hubUrl))
+    {
+        connectionBuilder.WithUrl(hubUrl, options =>
+        {
+            options.Headers.Add("Authorization", $"tma {initDataString}");
+        });
+    }
+    else
+    {
+        // TODO: just validate the init data before any of this stuff happens
+        // and if the data is missing, redirect to some page that tells the user
+        // to open the web app through Telegram
+        connectionBuilder.WithUrl(hubUrl);
+    }
+    return connectionBuilder
+        .WithAutomaticReconnect()
+        .Build();
+});
 builder.Services.AddMudServices();
 await builder.Build().RunAsync();

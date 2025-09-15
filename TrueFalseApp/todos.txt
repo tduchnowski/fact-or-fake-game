@@ -1,0 +1,1 @@
+  - create room fields validation (ranges for roundsNum and roundTimeout)

@@ -5,10 +5,10 @@
 
 <MudContainer MaxWidth="MaxWidth.Large" Class="d-flex flex-column align-center justify-center" Style="height: 100vh;">
     <MudStack Class="align-center">
-        <MudButton Variant="Variant.Filled" Class="mud-theme-primary" OnClick="CreateRoom">
+        <MudButton Variant="Variant.Filled" Class="mud-theme-primary" FullWidth="true" OnClick="CreateRoom">
             create room
         </MudButton>
-        <MudButton Variant="Variant.Filled" Class="mud-theme-primary" OnClick="JoinRoom">
+        <MudButton Variant="Variant.Filled" Class="mud-theme-primary" FullWidth="true" OnClick="JoinRoom">
             join with room code
         </MudButton>
     </MudStack>
@@ -25,9 +25,10 @@
         return DialogService.ShowAsync<CreateRoomDialog>("", options);
     }
 
-    private void JoinRoom()
+    private Task JoinRoom()
     {
         // Logic to join a multiplayer room
+        var options = new DialogOptions { CloseOnEscapeKey = true };
+        return DialogService.ShowAsync<JoinRoomDialog>("", options);
     }
-
 }

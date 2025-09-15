@@ -28,6 +28,18 @@ else
         return new InMemoryQuestionProvider(questions);
     });
 }
+string allowFrontendPolicy = "AllowFrontend";
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(name: allowFrontendPolicy,
+                      policy =>
+                      {
+                          policy.WithOrigins("http://localhost:5259",
+                                              "https://fact-or-fake-dev.pages.dev")
+                          .AllowAnyHeader()
+                          .AllowAnyMethod();
+                      });
+});
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<IConnectionMultiplexer>(sp => { return ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("Redis")); });
@@ -47,8 +59,9 @@ builder.Services.AddHostedService<RedisStateUpdater>();
 builder.Services.AddSingleton<IRedisLockerHelper, RedisLocker>();
 
 var app = builder.Build();
+app.UseCors(allowFrontendPolicy);
 app.MapControllers();
-app.MapHub<MultiplayerHub>("/rooms");
+app.MapHub<MultiplayerHub>("/api/hub");
 app.MapGet("/health/ready", () => Results.Ok("Ready"));
 app.MapGet("/health/live", () => Results.Ok("Alive"));
 

@@ -1,8 +1,10 @@
 NEXT:
+  - consider expiration data for information saved in Redis in case the server fails to do the cleanup
+  - error queue for sending to the clients
   - fetch questions before starting a game instead of fetching questions one by one every round
   - integration tests
   - end to end tests (client simulations)
   - maximum performance logging
-  - consider expiration data for information saved in Redis in case the server fails to do the cleanup
   - change the logic of room code generation
   - prevent collisions in room generation
+

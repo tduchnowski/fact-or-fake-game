@@ -1,29 +1,52 @@
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject IConfiguration Configuration
+@inject HttpClient Http
+
+@using System.Text.Json
+@using TrueFalseWebApp.Models
+
 <MudDialog>
     <DialogContent>
-        @if (string.IsNullOrEmpty(roomCode))
+        @if (isSettingUp)
         {
             <MudStack Class="align-center">
-                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" Class="my-4" />
-                <MudText Typo="Typo.subtitle2">Creating your room...</MudText>
+                <MudTextField @bind-Value="roundsNumber" Label="Number of rounds"
+                    HelperText="How many rounds you want to play?" Variant="Variant.Outlined" />
+                <MudTextField @bind-Value="roundTimeout" Label="Round timeout (seconds)"
+                    HelperText="How long should each round last?" Variant="Variant.Outlined" />
+                <MudButton Variant="Variant.Filled" Class="mud-theme-primary" OnClick="CreateRoom">
+                    Create
+                </MudButton>
             </MudStack>
         }
         else
         {
-            <MudStack Row="true" Class="align-center mb-4" Justify="Justify.SpaceBetween">
-                <MudText Typo="Typo.subtitle2">Room code: <strong>@roomCode</strong></MudText>
-                <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Color="Color.Primary"
-                    OnClick="(() => CopyToClipboard(roomCode))" />
-            </MudStack>
-            <MudStack Row="true" Class="align-center mb-4">
-                <MudText Typo="Typo.subtitle2">Invitation link: <strong>@GetInviteLink()</strong></MudText>
-                <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Color="Color.Primary"
-                    OnClick="(() => CopyToClipboard(GetInviteLink()))" />
-            </MudStack>
+            @if (string.IsNullOrEmpty(roomCode))
+            {
+                <MudStack Class="align-center">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" Class="my-4" />
+                    <MudText Typo="Typo.subtitle2">Creating your room...</MudText>
+                </MudStack>
+            }
+            else
+            {
+                <MudText Typo="Typo.subtitle1" Class="text-center m-4"><strong>Game created!</strong></MudText>
+                <MudStack Row="true" Class="align-center mb-4" Justify="Justify.SpaceBetween">
+                    <MudText Typo="Typo.subtitle2">Room code: <strong>@roomCode</strong></MudText>
+                    <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Color="Color.Primary"
+                        OnClick="(() => CopyToClipboard(roomCode))" />
+                </MudStack>
+                <MudStack Row="true" Class="align-center mb-4">
+                    <MudText Typo="Typo.subtitle2">Invitation link: <strong>@GetInviteLink()</strong></MudText>
+                    <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Color="Color.Primary"
+                        OnClick="(() => CopyToClipboard(GetInviteLink()))" />
+                </MudStack>
+            }
         }
     </DialogContent>
     <DialogActions>
-        @if (!string.IsNullOrEmpty(roomCode))
+        @if (!string.IsNullOrEmpty(roomCode) && !isSettingUp)
         {
             <MudContainer Class="d-flex align-center justify-center">
                 <MudButton Color="Color.Primary" OnClick="@(() => Navigation.NavigateTo($"/multiplayer/{roomCode}"))">Join
@@ -36,26 +59,38 @@
 @code {
     [CascadingParameter]
     private IMudDialogInstance MudDialog { get; set; }
+    private bool isSettingUp = true;
     private string roomCode = "";
-
-    protected override async Task OnInitializedAsync()
-    {
-        await Task.Delay(2000);
-        roomCode = Guid.NewGuid().ToString().Substring(0, 6).ToUpper();
-        await base.OnInitializedAsync();
-    }
+    private int roundsNumber = 10;
+    private int roundTimeout = 15;
 
     private void Cancel() => MudDialog.Cancel();
 
     private string GetInviteLink()
     {
         // Logic to generate invite link
-        return $"https://example.com/invite/{roomCode}";
+        string baseUrl = Configuration["Telegram:MiniAppUrl"];
+        return $"{baseUrl}?startapp={roomCode}";
     }
 
-    private void CopyToClipboard(string text)
+    private async Task CopyToClipboard(string text)
     {
-        // Logic to copy text to clipboard
-        Console.WriteLine($"Copied to clipboard: {text}");
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+    }
+
+    private async Task CreateRoom()
+    {
+        isSettingUp = false;
+        try
+        {
+            ApiResponse<string> response = await
+            Http.GetFromJsonAsync<ApiResponse<string>>($"createRoom?roundsNum={roundsNumber}&roundTimeout={roundTimeout}");
+            roomCode = response.Content;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error creating room: {ex.Message}");
+        }
+
     }
 }

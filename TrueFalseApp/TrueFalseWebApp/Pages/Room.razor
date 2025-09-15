@@ -1,9 +1,16 @@
 @page "/multiplayer/{RoomCode}"
 @inject NavigationManager Navigation
-@using System.Collections.Concurrent
+@inject HubConnection HubConnection
+@implements IAsyncDisposable
+@using System.Text.Json
+@using System.Threading.Channels
+@using Microsoft.AspNetCore.SignalR.Client
+@using TrueFalseWebApp.Models
+@using TrueFalseWebApp.Shared
+@inject TelegramInitData TelegramInitData
 
 <MudContainer MaxWidth="MaxWidth.Large" Class="d-flex flex-column align-center justify-center" Style="height: 100vh;">
-    @if (currentView == GameView.Loading)
+    @if (currentView is GameView.Loading or GameView.Reconnecting)
     {
         <MudStack Class="align-center">
             <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" Class="my-4" />
@@ -12,16 +19,65 @@
     }
     else if (currentView == GameView.NotStarted)
     {
+        <MudStack Class="align-center">
+
+            <MudText Typo="Typo.subtitle2">Players in the room:</MudText>
+            <MudList T="string">
+                @foreach (var player in currentPlayersInfo.Players.Values)
+                {
+                    <MudListItem>
+                        <MudText>@player.PlayerName</MudText>
+                    </MudListItem>
+                }
+            </MudList>
+            @if (isHost && currentPlayersInfo.Players.Count >= 1)// its 1 for now but should be 2
+            {
+                <MudButton Variant="Variant.Filled" Class="mud-theme-primary mt-4" OnClick="StartGame">
+                    Start Game
+                </MudButton>
+            }
+            else
+            {
+                <MudText Typo="Typo.subtitle2" Class="mt-2">
+                    Waiting for the host to start the game...
+                </MudText>
+            }
+        </MudStack>
 
     }
     else if (currentView == GameView.InProgress)
     {
-
-
+        <MudPaper Class="pa-4 mb-4 w-100" FullWidth Elevation="2">
+            <MudText Typo="Typo.h6" Class="d-flex justify-center align-center" FullWidth="true">
+                @currentRoomState.CurrentRound.RoundQuestion.Text
+            </MudText>
+        </MudPaper>
+        <MudStack Row="true" Spacing="2">
+            <MudButton Variant="Variant.Filled" Class="@($"{buttonTrueClass} flex-grow-1")" FullWidth Color="Color.Primary"
+                OnClick="@(() => SendAnswer(true))">True</MudButton>
+            <MudButton Variant="Variant.Filled" Class="@($"{buttonFalseClass} flex-grow-1")" FullWidth Color="Color.Primary"
+                OnClick="@(() => SendAnswer(false))">False</MudButton>
+        </MudStack>
     }
     else if (currentView == GameView.Results)
     {
-
+        <MudText Typo="Typo.h4" Class="mb-2">Game Over!</MudText>
+        <MudText Typo="Typo.h6">Final Scores</MudText>
+        <MudList T="string">
+            @foreach (var row in currentPlayersInfo.Players.Values.OrderByDescending(p => p.Score).Select((value, index) =>
+                    new { value, index = index + 1 }))
+            {
+                <MudListItem>
+                    <MudText>@row.index. @row.value.PlayerName @row.value.Score</MudText>
+                </MudListItem>
+            }
+        </MudList>
+        @if (isHost)
+        {
+            <MudButton Variant="Variant.Filled" Class="mud-theme-primary mt-4" OnClick="StartGame">
+                Play Again
+            </MudButton>
+        }
     }
     <MudIconButton Icon="@Icons.Material.Filled.Home" Title="Home" Size="Size.Large" Color="Color.Inherit"
         Style="position: absolute; bottom: 16px; left: 16px; cursor: pointer;"
@@ -32,14 +88,149 @@
     [Parameter]
     public string RoomCode { get; set; }
 
-    private enum GameView { Loading, NotStarted, InProgress, Results };
+    private enum GameView { Loading, NotStarted, InProgress, Results, Reconnecting };
     private GameView currentView = GameView.Loading;
+    private RoomState currentRoomState = RoomState.Empty;
+    private PlayersInfo currentPlayersInfo = PlayersInfo.Empty;
+    private Channel<string> stateUpdates = Channel.CreateUnbounded<string>();
+    private Channel<string> playersUpdates = Channel.CreateUnbounded<string>();
+    private bool isHost = false;
+    private string buttonTrueClass = "";
+    private string buttonFalseClass = "";
+    private bool midRound = false;
 
     protected override async Task OnInitializedAsync()
     {
-        await Task.Delay(2000);
+        _ = Task.Run(ProcessRoomStateUpdates);
+        _ = Task.Run(ProcessPlayersUpdates);
+        HubConnection.On<string>("state", async (roomStateJson) =>
+        {
+            await stateUpdates.Writer.WriteAsync(roomStateJson);
+        });
+        HubConnection.On<string>("players", async (playersInfoJson) =>
+        {
+            await playersUpdates.Writer.WriteAsync(playersInfoJson);
+        });
+        try
+        {
+            await HubConnection.StartAsync();
+            await HubConnection.InvokeAsync("JoinRoom", RoomCode);
+            string username = TelegramInitData.GetUnsafeData()?.User?.Username ?? "Player" + new Random().Next(1000, 9999);
+            await HubConnection.InvokeAsync("SetName", RoomCode, username);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error connecting to hub: {ex.Message}");
+            currentView = GameView.Reconnecting;
+            StateHasChanged();
+            return;
+        }
+
         currentView = GameView.NotStarted;
         await base.OnInitializedAsync();
     }
 
+    public async ValueTask DisposeAsync()
+    {
+        Console.WriteLine("leaving room...");
+        if (HubConnection is not null)
+        {
+            await HubConnection.StopAsync();
+            await HubConnection.DisposeAsync();
+        }
+    }
+
+    private async Task ProcessRoomStateUpdates()
+    {
+        await foreach (var update in stateUpdates.Reader.ReadAllAsync())
+        {
+            Console.WriteLine(update);
+            var roomState = JsonSerializer.Deserialize<RoomState>(update);
+            if (roomState != null)
+            {
+                if (roomState.Stage == "waitingForStart") continue; // ignore it, this is just for the server
+                currentRoomState = roomState;
+                if (roomState.Stage == "roundInProgress")
+                {
+                    currentView = GameView.InProgress;
+                }
+                else if (roomState.Stage == "finished")
+                {
+                    currentView = GameView.Results;
+                }
+                midRound = false;
+                ResetButtonClasses();
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task ProcessPlayersUpdates()
+    {
+        await foreach (var update in playersUpdates.Reader.ReadAllAsync())
+        {
+            Console.WriteLine(update);
+            var playersInfo = JsonSerializer.Deserialize<PlayersInfo>(update);
+            if (playersInfo != null)
+            {
+                currentPlayersInfo = playersInfo;
+                // determine if the current user is the host
+                foreach (var (connectionId, player) in playersInfo.Players)
+                {
+                    if (connectionId == HubConnection.ConnectionId && player.IsHost)
+                    {
+                        isHost = true;
+                        break;
+                    }
+                }
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task StartGame()
+    {
+        await HubConnection.InvokeAsync("StartGame", RoomCode);
+    }
+
+    private async Task SendAnswer(bool answer)
+    {
+        if (midRound) return;
+        midRound = true;
+        HighlightAnswer(answer);
+        await HubConnection.InvokeAsync("SendAnswer", RoomCode, currentRoomState.CurrentRound.Id, answer ? "True"
+        : "False");
+    }
+
+    private void HighlightAnswer(bool answer)
+    {
+        if (answer == currentRoomState.CurrentRound.RoundQuestion.Answer)
+        {
+            if (answer)
+            {
+                buttonTrueClass = "correct-answer";
+            }
+            else
+            {
+                buttonFalseClass = "correct-answer";
+            }
+        }
+        else
+        {
+            if (answer)
+            {
+                buttonTrueClass = "wrong-answer";
+            }
+            else
+            {
+                buttonFalseClass = "wrong-answer";
+            }
+        }
+    }
+
+    private void ResetButtonClasses()
+    {
+        buttonTrueClass = "";
+        buttonFalseClass = "";
+    }
 }

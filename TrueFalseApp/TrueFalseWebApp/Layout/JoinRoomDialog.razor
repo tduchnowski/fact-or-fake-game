@@ -1,0 +1,28 @@
+@inject NavigationManager Navigation
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Class="align-center">
+            <MudTextField @bind-Value="roomCode" Label="Room code"
+                HelperText="Enter the room code of a room you want to join" Variant="Variant.Outlined" />
+
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        @if (!string.IsNullOrEmpty(roomCode))
+        {
+            <MudContainer Class="d-flex align-center justify-center">
+                <MudButton Color="Color.Primary" OnClick="@(() => Navigation.NavigateTo($"/multiplayer/{roomCode}"))">Join
+                </MudButton>
+            </MudContainer>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; }
+    private string roomCode = "";
+
+    private void Cancel() => MudDialog.Cancel();
+}

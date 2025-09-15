@@ -55,14 +55,27 @@ public class MultiplayerHub : Hub
 
     public async Task<OperationResult> JoinRoom(string roomId)
     {
-        // TODO: first there needs to be some checking if roomId is even registered
         try
         {
-            if (await _redisGame.GetRoomState(roomId) == null)
-            {
-                _logger.LogWarning("JoinRoom roomId = {roomId}. state is null", roomId);
-                return OperationResult.Fail("There's no room registered for this room id");
-            }
+            await _redisGame.GetRoomState(roomId);
+        }
+        catch (RedisKeyMissing ex)
+        {
+            _logger.LogError(ex, "JoinRoom({roomId}) operation failed due to the missing key", roomId);
+            return OperationResult.Fail($"There's no room registered for this room id={roomId}");
+        }
+        catch (RedisDbException ex)
+        {
+            _logger.LogError(ex, "JoinRoom({roomId}) operation failed due to the database problem", roomId);
+            return OperationResult.Fail("Internal server error");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "JoinRoom({roomId}) operation failed due to the unexpected exception", roomId);
+            return OperationResult.Fail("Internal server error");
+        }
+        try
+        {
             bool ok = await _redisLocker.ExecuteWithLock($"lock:players:{roomId}", async () =>
             {
                 PlayersInfo playersInfo;

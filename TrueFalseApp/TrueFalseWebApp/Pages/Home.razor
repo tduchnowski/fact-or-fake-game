@@ -1,19 +1,29 @@
 ﻿@page "/"
 @inject NavigationManager Navigation
+@* @using TrueFalseWebApp.Shared
+@inject TelegramInitData TelegramInitData *@
 @using MudBlazor
 
 <MudContainer Class="d-flex align-center justify-center" Style="height: 100vh; width: 100vw;">
     <MudStack Class="align-center">
-        <MudButton Variant="Variant.Filled" Class="mud-theme-primary" OnClick="StartSoloGame">
+        @* <MudText Typo="Typo.h3" Class="mb-4">@initData</MudText> *@
+        <MudButton Variant="Variant.Filled" Class="mud-theme-primary" FullWidth="true" OnClick="StartSoloGame">
             Play Solo
         </MudButton>
-        <MudButton Variant="Variant.Filled" Class="mud-theme-primary" OnClick="StartMultiplayerGame">
+        <MudButton Variant="Variant.Filled" Class="mud-theme-primary" FullWidth="true" OnClick="StartMultiplayerGame">
             Play With Friends
         </MudButton>
     </MudStack>
 </MudContainer>
 
 @code {
+    @* private string initData = ""; *@
+
+    @* protected override async Task OnInitializedAsync()
+    {
+        initData = TelegramInitData.GetInitDataString() ?? "No init data";
+        await Task.CompletedTask;
+    } *@
     private void StartSoloGame()
     {
         Navigation.NavigateTo("solo");

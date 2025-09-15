@@ -1,5 +1,6 @@
 @page "/solo"
 @inject NavigationManager Navigation
+@inject HttpClient Http
 @using MudBlazor
 @using TrueFalseWebApp.Models
 
@@ -36,9 +37,9 @@
             <MudText Typo="Typo.h6">@currentQuestion.Text</MudText>
         </MudPaper>
         <MudStack Row="true" Spacing="2">
-            <MudButton Variant="Variant.Filled" Class="@buttonTrueClass" Color="Color.Primary"
+            <MudButton Variant="Variant.Filled" Class="@($"{buttonTrueClass} flex-grow-1")" FullWidth Color="Color.Primary"
                 OnClick="@(() => SendAnswer(true))">True</MudButton>
-            <MudButton Variant="Variant.Filled" Class="@buttonFalseClass" Color="Color.Primary"
+            <MudButton Variant="Variant.Filled" Class="@($"{buttonFalseClass} flex-grow-1")" FullWidth Color="Color.Primary"
                 OnClick="@(() => SendAnswer(false))">False</MudButton>
         </MudStack>
     }
@@ -139,9 +140,11 @@
         buttonFalseClass = "";
     }
 
-    private Task<Question> GetNextQuestion()
+    private async Task<Question> GetNextQuestion()
     {
-        return Task.FromResult(new Question(++currId, $"Question {currId}", currId % 2 == 0));
+        ApiResponse<List<Question>> response = await
+        Http.GetFromJsonAsync<ApiResponse<List<Question>>>($"randomQuestions/1");
+        currId++;
+        return response!.Content[0];
     }
-
 }
