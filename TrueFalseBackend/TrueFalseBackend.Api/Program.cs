@@ -57,9 +57,16 @@ builder.Services.AddSingleton(sp =>
 });
 builder.Services.AddHostedService<RedisStateUpdater>();
 builder.Services.AddSingleton<IRedisLockerHelper, RedisLocker>();
+string? botToken = builder.Configuration["Telegram:BotToken"];
+if (string.IsNullOrEmpty(botToken)) throw new Exception("No BotToken found in a configuration");
+builder.Services.AddTransient<TelegramValidator>(_ =>
+{
+    return new TelegramValidator(builder.Configuration["Telegram:BotToken"]);
+});
 
 var app = builder.Build();
 app.UseCors(allowFrontendPolicy);
+app.UseMiddleware<TelegramValidator>();
 app.MapControllers();
 app.MapHub<MultiplayerHub>("/api/hub");
 app.MapGet("/health/ready", () => Results.Ok("Ready"));

@@ -27,7 +27,11 @@ builder.Services.AddScoped(sp =>
     };
     if (!string.IsNullOrEmpty(initDataString))
     {
-        client.DefaultRequestHeaders.Add("Authorization", $"tma {initDataString}");
+        client.DefaultRequestHeaders.Add("X-Telegram-InitData", $"tma {initDataString}");
+    }
+    else
+    {
+        client.DefaultRequestHeaders.Add("X-Telegram-InitData", $"tma");
     }
     return client;
 });
@@ -36,13 +40,12 @@ builder.Services.AddTransient(sp =>
 {
     var tgInitData = sp.GetRequiredService<TelegramInitData>();
     var initDataString = tgInitData.GetInitDataString();
-    Console.WriteLine($"Init data: {initDataString}");
     HubConnectionBuilder connectionBuilder = new HubConnectionBuilder();
     if (!string.IsNullOrEmpty(hubUrl))
     {
         connectionBuilder.WithUrl(hubUrl, options =>
         {
-            options.Headers.Add("Authorization", $"tma {initDataString}");
+            options.Headers.Add("X-Telegram-InitData", $"tma {initDataString}");
         });
     }
     else
@@ -50,7 +53,10 @@ builder.Services.AddTransient(sp =>
         // TODO: just validate the init data before any of this stuff happens
         // and if the data is missing, redirect to some page that tells the user
         // to open the web app through Telegram
-        connectionBuilder.WithUrl(hubUrl);
+        connectionBuilder.WithUrl(hubUrl, options =>
+        {
+            options.Headers.Add("X-Telegram-InitData", $"tma");
+        });
     }
     return connectionBuilder
         .WithAutomaticReconnect()
