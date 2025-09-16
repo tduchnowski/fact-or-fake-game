@@ -5,6 +5,7 @@ namespace TrueFalseWebApp.Models;
 public record WebAppInitDataUnsafe
 (
     [property: JsonPropertyName("user")] WebAppUser? User,
+    [property: JsonPropertyName("start_param")] string? StartParam,
     [property: JsonPropertyName("hash")] string Hash,
     [property: JsonPropertyName("signature")] string Signature
 );

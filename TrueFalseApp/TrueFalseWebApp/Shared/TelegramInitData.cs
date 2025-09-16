@@ -6,13 +6,17 @@ namespace TrueFalseWebApp.Shared;
 public class TelegramInitData
 {
     private readonly IJSInProcessRuntime _jsSynchronousRuntime;
+    public string? InitDataString { get; init; }
+    public WebAppInitDataUnsafe? InitDataUnsafe { get; private set; }
 
     public TelegramInitData(IJSRuntime jsRuntime)
     {
         _jsSynchronousRuntime = (IJSInProcessRuntime)jsRuntime;
+        InitDataString = GetInitDataString();
+        InitDataUnsafe = GetUnsafeData();
     }
 
-    public string GetInitDataString()
+    private string GetInitDataString()
     {
         try
         {
@@ -25,7 +29,7 @@ public class TelegramInitData
         }
     }
 
-    public WebAppInitDataUnsafe? GetUnsafeData()
+    private WebAppInitDataUnsafe? GetUnsafeData()
     {
         try
         {
@@ -35,6 +39,14 @@ public class TelegramInitData
         {
             Console.Error.WriteLine($"Error getting Telegram Web App unsafe init data: {ex}");
             return null;
+        }
+    }
+
+    public void ResetStartParam()
+    {
+        if (InitDataUnsafe is not null)
+        {
+            InitDataUnsafe = InitDataUnsafe with { StartParam = null };
         }
     }
 }

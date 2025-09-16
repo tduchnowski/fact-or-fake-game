@@ -66,7 +66,8 @@ builder.Services.AddTransient<TelegramValidator>(_ =>
 
 var app = builder.Build();
 app.UseCors(allowFrontendPolicy);
-app.UseMiddleware<TelegramValidator>();
+if (!builder.Environment.IsDevelopment())
+    app.UseMiddleware<TelegramValidator>();
 app.MapControllers();
 app.MapHub<MultiplayerHub>("/api/hub");
 app.MapGet("/health/ready", () => Results.Ok("Ready"));

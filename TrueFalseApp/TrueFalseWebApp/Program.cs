@@ -18,9 +18,7 @@ string hubUrl = config["TrueFalseApi:HubUrl"] ?? throw new InvalidOperationExcep
 builder.Services.AddScoped(sp =>
 {
     var tgInitData = sp.GetRequiredService<TelegramInitData>();
-    var initDataString = tgInitData.GetInitDataString();
-    Console.WriteLine($"Init data: {initDataString}");
-
+    var initDataString = tgInitData.InitDataString;
     HttpClient client = new HttpClient
     {
         BaseAddress = new Uri(apiBaseUrl)
@@ -39,7 +37,7 @@ builder.Services.AddScoped(sp =>
 builder.Services.AddTransient(sp =>
 {
     var tgInitData = sp.GetRequiredService<TelegramInitData>();
-    var initDataString = tgInitData.GetInitDataString();
+    var initDataString = tgInitData.InitDataString;
     HubConnectionBuilder connectionBuilder = new HubConnectionBuilder();
     if (!string.IsNullOrEmpty(hubUrl))
     {

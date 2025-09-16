@@ -1,1 +1,4 @@
-  - create room fields validation (ranges for roundsNum and roundTimeout)
+  - working with invitation link (getting the startapp parameter that is roomId and redirecting to this room)
+  - "Play Again" button
+  - Real questions from the DB
+  - create room fields validation (ranges for roundsNum and roundTimeout in room creation)

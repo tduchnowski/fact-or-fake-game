@@ -1,7 +1,8 @@
 ﻿@page "/"
 @inject NavigationManager Navigation
-@* @using TrueFalseWebApp.Shared
-@inject TelegramInitData TelegramInitData *@
+@using TrueFalseWebApp.Models
+@using TrueFalseWebApp.Shared
+@inject TelegramInitData TelegramInitData
 @using MudBlazor
 
 <MudContainer Class="d-flex align-center justify-center" Style="height: 100vh; width: 100vw;">
@@ -17,13 +18,18 @@
 </MudContainer>
 
 @code {
-    @* private string initData = ""; *@
-
-    @* protected override async Task OnInitializedAsync()
+    protected override async Task OnInitializedAsync()
     {
-        initData = TelegramInitData.GetInitDataString() ?? "No init data";
+        WebAppInitDataUnsafe? initDataUnsafe = TelegramInitData.InitDataUnsafe;
+        string? startParam = initDataUnsafe?.StartParam;
+        if (!string.IsNullOrEmpty(startParam))
+        {
+            Navigation.NavigateTo($"/multiplayer/{startParam}");
+            TelegramInitData.ResetStartParam();
+        }
         await Task.CompletedTask;
-    } *@
+    }
+
     private void StartSoloGame()
     {
         Navigation.NavigateTo("solo");

@@ -115,7 +115,7 @@
         {
             await HubConnection.StartAsync();
             await HubConnection.InvokeAsync("JoinRoom", RoomCode);
-            string username = TelegramInitData.GetUnsafeData()?.User?.Username ?? "Player" + new Random().Next(1000, 9999);
+            string username = TelegramInitData.InitDataUnsafe?.User?.Username ?? "Player" + new Random().Next(1000, 9999);
             await HubConnection.InvokeAsync("SetName", RoomCode, username);
         }
         catch (Exception ex)
