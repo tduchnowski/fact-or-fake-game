@@ -34,19 +34,19 @@ public class GameService
     {
         // if there is already a game in _activeRooms then it means there is a game
         // already in progress, so don't do anything
-        if (_activeRooms.TryGetValue(roomId, out var game) && game != null) return false;
+        // if (_activeRooms.TryGetValue(roomId, out var game) && game != null) return false;
         try
         {
             return await _redisLocker.ExecuteWithLock($"lock:states:{roomId}", async () =>
             {
                 // get state for this room for information about rounds number and delays
                 RoomState? roomState = await _synchronizer.GetRoomState(roomId);
-                if (roomState == null || roomState.Stage != "notStarted") return false;
-                game = new TrueFalseGame(roomId, _questionProvider, _synchronizer, _logger);
-                _ = _activeRooms.GetOrAdd(roomId, game);
+                if (roomState == null || roomState.Stage is "waitingForStart" or "roundInProgress") return false;
+                TrueFalseGame game = new(roomId, _questionProvider, _synchronizer, _logger);
+                _activeRooms.AddOrUpdate(roomId, game, (key, value) => game);
                 roomState!.Stage = "waitingForStart";
-                await game.StartGame();
                 await _synchronizer.PublishRoomState(roomId, roomState);
+                await game.StartGame();
                 _logger.LogInformation("Starting a game for room {roomId} and RoomState = {roomState}", roomId, roomState.ToJsonString());
                 return true;
             });
