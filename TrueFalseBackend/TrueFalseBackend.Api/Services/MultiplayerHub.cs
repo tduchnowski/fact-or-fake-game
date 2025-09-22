@@ -32,8 +32,7 @@ public class MultiplayerHub : Hub
             string roomId = await _redisGame.GetRoomForUser(Context.ConnectionId) ?? "";
             bool ok = await _redisLocker.ExecuteWithLock($"lock:players:{roomId}", async () =>
             {
-                PlayersInfo? pi = await _redisGame.GetPlayersInfo(roomId);
-                if (pi == null) return false;
+                PlayersInfo pi = await _redisGame.GetPlayersInfo(roomId);
                 pi.RemovePlayer(Context.ConnectionId);
                 await _redisGame.PublishPlayersInfo(roomId, pi);
                 await _redisGame.RemoveConnectionToRoomMapping(Context.ConnectionId);

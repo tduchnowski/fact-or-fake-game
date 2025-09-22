@@ -72,7 +72,7 @@ public class RedisGame : IRoomSynchronizer
 
     public async Task PublishRoomState(string roomId, RoomState roomState)
     {
-        await PublishObject($"states:{roomId}", roomState);
+        await PublishObject($"states:{roomId}", roomState, TimeSpan.FromMinutes(5));
     }
 
     public async Task<PlayersInfo> GetPlayersInfo(string roomId)
@@ -82,7 +82,7 @@ public class RedisGame : IRoomSynchronizer
 
     public async Task PublishPlayersInfo(string roomId, PlayersInfo playersInfo)
     {
-        await PublishObject($"players:{roomId}", playersInfo);
+        await PublishObject($"players:{roomId}", playersInfo, TimeSpan.FromHours(1));
     }
 
     public async Task<RoundAnswers> GetRoundAnswers(string roomId, int roundId)
@@ -92,7 +92,7 @@ public class RedisGame : IRoomSynchronizer
 
     public async Task PublishRoundAnswers(string roomId, int roundId, RoundAnswers answers)
     {
-        await PublishObject($"answers:{roomId}:{roundId}", answers);
+        await PublishObject($"answers:{roomId}:{roundId}", answers, TimeSpan.FromMinutes(5));
     }
 
     public async Task<string?> GetRoomForUser(string connectionId)
@@ -126,16 +126,16 @@ public class RedisGame : IRoomSynchronizer
         }
     }
 
-    private async Task PublishObject(string channel, JsonStringer obj)
+    private async Task PublishObject(string channel, JsonStringer obj, TimeSpan expiration)
     {
         try
         {
             RedisChannel chan = new RedisChannel(channel, RedisChannel.PatternMode.Literal);
             string roomStateJson = obj.ToJsonString();
-            await _redisDb.Db.StringSetAsync(chan.ToString(), roomStateJson);
+            await _redisDb.Db.StringSetAsync(chan.ToString(), roomStateJson, expiration);
             await _redisDb.Subscriber.PublishAsync(chan, roomStateJson);
         }
-        catch (Exception ex) when (ex is RedisConnectionException or RedisTimeoutException)
+        catch (Exception ex) when (ex is RedisConnectionException or RedisTimeoutException or RedisServerException)
         {
             _logger.LogError(ex, "failed to publish object in a channel {channel}", channel);
             throw new RedisDbException($"PublishObject({channel})", ex);
@@ -144,13 +144,21 @@ public class RedisGame : IRoomSynchronizer
 
     public async Task RemoveSaved(string roomId)
     {
-        await _redisDb.Db.KeyDeleteAsync($"states:{roomId}");
-        await _redisDb.Db.KeyDeleteAsync($"players:{roomId}");
-        var endpoint = _redisDb.Connection.GetEndPoints().First();
-        var server = _redisDb.Connection.GetServer(endpoint);
-        foreach (var key in server.Keys(pattern: $"answers:{roomId}:*", pageSize: 100))
+        try
         {
-            await _redisDb.Db.KeyDeleteAsync(key);
+            await _redisDb.Db.KeyDeleteAsync($"states:{roomId}");
+            await _redisDb.Db.KeyDeleteAsync($"players:{roomId}");
+            var endpoint = _redisDb.Connection.GetEndPoints().First();
+            var server = _redisDb.Connection.GetServer(endpoint);
+            await foreach (var key in server.KeysAsync(database: _redisDb.Db.Database, pattern: $"answers:{roomId}:*", pageSize: 100))
+            {
+                await _redisDb.Db.KeyDeleteAsync(key);
+            }
+        }
+        catch (Exception ex) when (ex is RedisConnectionException or RedisTimeoutException or RedisServerException)
+        {
+            _logger.LogError(ex, "failed to remove saved data for room {roomId}", roomId);
+            throw new RedisDbException($"RemoveSaved({roomId})", ex);
         }
     }
 }

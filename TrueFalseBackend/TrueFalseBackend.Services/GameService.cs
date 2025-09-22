@@ -32,9 +32,6 @@ public class GameService
 
     public async Task<bool> StartGame(string roomId)
     {
-        // if there is already a game in _activeRooms then it means there is a game
-        // already in progress, so don't do anything
-        // if (_activeRooms.TryGetValue(roomId, out var game) && game != null) return false;
         try
         {
             return await _redisLocker.ExecuteWithLock($"lock:states:{roomId}", async () =>

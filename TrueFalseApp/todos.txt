@@ -1,3 +1,7 @@
-  - "Play Again" button
-  - Real questions from the DB
+  - real questions from the DB
   - create room fields validation (ranges for roundsNum and roundTimeout in room creation)
+  - errors in the app:
+    - solo mode is a good start (only HttpClient can fail)
+    - most functions return OperationResult, use it
+    - unexpected internal server errors
+    - connection errors, handling reconnection

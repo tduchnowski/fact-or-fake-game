@@ -1,8 +1,4 @@
 NEXT:
-  - handle the case when deleting room gets a missing key exception
-  - handle missing keys while joining a room
-  - consider expiration data for information saved in Redis in case the server fails to do the cleanup
-  - error queue for sending to clients
   - fetch questions before starting a game instead of fetching questions one by one every round
   - integration tests
   - end to end tests (client simulations)
