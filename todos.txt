@@ -1,5 +1,7 @@
 NEXT:
   - real questions and Postgres
+  - room size cap
+  - on SetName if a player of a given username already exists in the room, modify the PlayersInfo
 
 FURTHER IMPROVEMENTS:
   - fetch questions before starting a game instead of fetching questions one by one every round

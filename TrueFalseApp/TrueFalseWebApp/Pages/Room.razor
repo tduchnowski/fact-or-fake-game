@@ -126,7 +126,8 @@
         {
             await playersUpdates.Writer.WriteAsync(playersInfoJson);
         });
-        try
+        await InitializeConnection();
+        @* try
         {
             await HubConnection.StartAsync();
 
@@ -145,10 +146,11 @@
         try
         {
             HubOperationResult joinRoomResponse = await HubConnection.InvokeAsync<HubOperationResult>("JoinRoom", RoomCode);
-            if (!joinRoomResponse.Success)
+            Console.WriteLine($"JoinRoom response: {System.Text.Json.JsonSerializer.Serialize(joinRoomResponse)}");
+            if (!joinRoomResponse.Ok)
             {
                 currentView = GameView.Reconnecting;
-                Snackbar.Add($"Failed to join the room: {joinRoomResponse.ErrorMessage}", Severity.Error);
+                Snackbar.Add($"Failed to join the room.", Severity.Error);
                 StateHasChanged();
             }
         }
@@ -159,12 +161,13 @@
         or TimeoutException)
         {
             Snackbar.Add($"Failed to join the room. It may not exist or is full.", Severity.Error);
+            Console.WriteLine($"Failed to join room: {ex.Message}");
         }
         try
         {
             string username = TelegramInitData.InitDataUnsafe?.User?.Username ?? "Player" + new Random().Next(1000, 9999);
             HubOperationResult setNameResponse = await HubConnection.InvokeAsync<HubOperationResult>("SetName", RoomCode, username);
-            if (!setNameResponse.Success)
+            if (!setNameResponse.Ok)
             {
                 Snackbar.Add($"Failed to set your name in the room. Using a default name.", Severity.Warning);
             }
@@ -178,13 +181,73 @@
             Snackbar.Add($"Failed to set your name in the room.", Severity.Error);
         }
         currentView = GameView.NotStarted;
-        StateHasChanged();
+        Snackbar.Add("Successfully joined the room!", Severity.Success);
+        StateHasChanged(); *@
         await base.OnInitializedAsync();
+    }
+
+    private async Task InitializeConnection()
+    {
+        int baseDelayMs = 2000;
+        for (int i = 0; i < 5; i++)
+        {
+            try
+            {
+                await HubConnection.StartAsync();
+                HubOperationResult joinRoomResponse = await HubConnection.InvokeAsync<HubOperationResult>("JoinRoom", RoomCode);
+                if (!joinRoomResponse.Ok)
+                {
+                    Snackbar.Add($"Failed to join the room. {joinRoomResponse.Message}", Severity.Error);
+                    break;
+                }
+                string username = TelegramInitData.InitDataUnsafe?.User?.Username ?? "Player" + new Random().Next(1000, 9999);
+                HubOperationResult setNameResponse = await HubConnection.InvokeAsync<HubOperationResult>("SetName", RoomCode, username);
+                if (!setNameResponse.Ok)
+                {
+                    Snackbar.Add($"Failed to set your name in the room. Defaulting to {username}", Severity.Warning);
+                }
+                currentView = GameView.NotStarted;
+                Snackbar.Add("Successfully joined the room!", Severity.Success);
+                StateHasChanged();
+                return;
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TimeoutException)
+            {
+                Snackbar.Add($"Network error while initializing room. Retrying... ({ex.Message})", Severity.Warning);
+                if (HubConnection.State == HubConnectionState.Connected)
+                {
+                    await HubConnection.StopAsync();
+                }
+                await Task.Delay(baseDelayMs * (i + 1));
+                continue;
+            }
+            catch (HubException ex)
+            {
+                Snackbar.Add($"Room initialization rejected by the server: {ex.Message}", Severity.Error);
+                break;
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode is System.Net.HttpStatusCode.Unauthorized or
+            System.Net.HttpStatusCode.Forbidden)
+            {
+                Snackbar.Add($"Authorization error: {ex.Message}", Severity.Error);
+                break;
+            }
+            catch (InvalidOperationException ex)
+            {
+                Snackbar.Add($"Invalid operation while initializing connection: {ex.Message}", Severity.Error);
+                break;
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Unexpected error: {ex.Message}", Severity.Error);
+                break;
+            }
+        }
+        Navigation.NavigateTo("/");
     }
 
     public async ValueTask DisposeAsync()
     {
-        Console.WriteLine("leaving room...");
         if (HubConnection is not null)
         {
             await HubConnection.StopAsync();

@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace TrueFalseWebApp.Models;
 
 public record ApiResponse<T>(
@@ -6,6 +8,6 @@ public record ApiResponse<T>(
 );
 
 public record HubOperationResult(
-    bool Success,
-    string? ErrorMessage
+    [property: JsonPropertyName("ok")] bool Ok,
+    [property: JsonPropertyName("message")] string? Message
 );
