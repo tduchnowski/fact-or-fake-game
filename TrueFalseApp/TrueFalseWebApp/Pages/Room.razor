@@ -1,9 +1,11 @@
 @page "/multiplayer/{RoomCode}"
 @inject NavigationManager Navigation
 @inject HubConnection HubConnection
+@inject ISnackbar Snackbar
 @implements IAsyncDisposable
 @using System.Text.Json
 @using System.Threading.Channels
+@using Microsoft.AspNetCore.SignalR
 @using Microsoft.AspNetCore.SignalR.Client
 @using TrueFalseWebApp.Models
 @using TrueFalseWebApp.Shared
@@ -103,6 +105,19 @@
     {
         _ = Task.Run(ProcessRoomStateUpdates);
         _ = Task.Run(ProcessPlayersUpdates);
+        HubConnection.Reconnecting += error =>
+        {
+            Snackbar.Add("Connection lost. Reconnecting to the room...", Severity.Warning);
+            StateHasChanged();
+            return Task.CompletedTask;
+        };
+        HubConnection.Closed += async error =>
+        {
+            currentView = GameView.Reconnecting;
+            Snackbar.Add("Could not reconnect to the room. Exiting...", Severity.Error);
+            Navigation.NavigateTo("/");
+            StateHasChanged();
+        };
         HubConnection.On<string>("state", async (roomStateJson) =>
         {
             await stateUpdates.Writer.WriteAsync(roomStateJson);
@@ -114,19 +129,56 @@
         try
         {
             await HubConnection.StartAsync();
-            await HubConnection.InvokeAsync("JoinRoom", RoomCode);
-            string username = TelegramInitData.InitDataUnsafe?.User?.Username ?? "Player" + new Random().Next(1000, 9999);
-            await HubConnection.InvokeAsync("SetName", RoomCode, username);
+
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is
+        InvalidOperationException
+        or HubException
+        or HttpRequestException
+        or TimeoutException)
         {
-            Console.WriteLine($"Error connecting to hub: {ex.Message}");
             currentView = GameView.Reconnecting;
+            Snackbar.Add($"Failed to connect to the room. Trying again...", Severity.Error);
             StateHasChanged();
             return;
         }
-
+        try
+        {
+            HubOperationResult joinRoomResponse = await HubConnection.InvokeAsync<HubOperationResult>("JoinRoom", RoomCode);
+            if (!joinRoomResponse.Success)
+            {
+                currentView = GameView.Reconnecting;
+                Snackbar.Add($"Failed to join the room: {joinRoomResponse.ErrorMessage}", Severity.Error);
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex) when (ex is
+        InvalidOperationException
+        or HubException
+        or HttpRequestException
+        or TimeoutException)
+        {
+            Snackbar.Add($"Failed to join the room. It may not exist or is full.", Severity.Error);
+        }
+        try
+        {
+            string username = TelegramInitData.InitDataUnsafe?.User?.Username ?? "Player" + new Random().Next(1000, 9999);
+            HubOperationResult setNameResponse = await HubConnection.InvokeAsync<HubOperationResult>("SetName", RoomCode, username);
+            if (!setNameResponse.Success)
+            {
+                Snackbar.Add($"Failed to set your name in the room. Using a default name.", Severity.Warning);
+            }
+        }
+        catch (Exception ex) when (ex is
+        InvalidOperationException
+        or HubException
+        or HttpRequestException
+        or TimeoutException)
+        {
+            Snackbar.Add($"Failed to set your name in the room.", Severity.Error);
+        }
         currentView = GameView.NotStarted;
+        StateHasChanged();
         await base.OnInitializedAsync();
     }
 
