@@ -1,6 +1,9 @@
 @page "/solo"
 @inject NavigationManager Navigation
+@inject ISnackbar Snackbar
 @inject HttpClient Http
+@using System.Text.Json
+
 @using MudBlazor
 @using TrueFalseWebApp.Models
 
@@ -19,29 +22,38 @@
     }
     else if (currentView == GameView.InProgress)
     {
-        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4"
-            Style="width: 100%;">
-            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
-                <MudIcon Icon="@Icons.Material.Filled.Scoreboard" Title="Score" Size="Size.Medium" Color="Color.Primary" />
+        @if (currentQuestion != null && string.IsNullOrEmpty(currentQuestion.Text) == false)
+        {
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4"
+                Style="width: 100%;">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+                    <MudIcon Icon="@Icons.Material.Filled.Scoreboard" Title="Score" Size="Size.Medium" Color="Color.Primary" />
 
-                <MudText Typo="Typo.h5">@score</MudText>
+                    <MudText Typo="Typo.h5">@score</MudText>
+                </MudStack>
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+                    <MudIcon Icon="@Icons.Material.Filled.Favorite" Title="Hearts" Size="Size.Medium" Color="Color.Error" />
+
+                    <MudText Typo="Typo.h5">@lives</MudText>
+                </MudStack>
             </MudStack>
-            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
-                <MudIcon Icon="@Icons.Material.Filled.Favorite" Title="Hearts" Size="Size.Medium" Color="Color.Error" />
 
-                <MudText Typo="Typo.h5">@lives</MudText>
+            <MudPaper Class="pa-4 mb-4" Elevation="2">
+                <MudText Typo="Typo.h6">@currentQuestion.Text</MudText>
+            </MudPaper>
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Filled" Class="@($"{buttonTrueClass} flex-grow-1")" FullWidth Color="Color.Primary"
+                    OnClick="@(() => SendAnswer(true))">True</MudButton>
+                <MudButton Variant="Variant.Filled" Class="@($"{buttonFalseClass} flex-grow-1")" FullWidth Color="Color.Primary"
+                    OnClick="@(() => SendAnswer(false))">False</MudButton>
             </MudStack>
-        </MudStack>
-
-        <MudPaper Class="pa-4 mb-4" Elevation="2">
-            <MudText Typo="Typo.h6">@currentQuestion.Text</MudText>
-        </MudPaper>
-        <MudStack Row="true" Spacing="2">
-            <MudButton Variant="Variant.Filled" Class="@($"{buttonTrueClass} flex-grow-1")" FullWidth Color="Color.Primary"
-                OnClick="@(() => SendAnswer(true))">True</MudButton>
-            <MudButton Variant="Variant.Filled" Class="@($"{buttonFalseClass} flex-grow-1")" FullWidth Color="Color.Primary"
-                OnClick="@(() => SendAnswer(false))">False</MudButton>
-        </MudStack>
+        }
+        else
+        {
+            <MudPaper Class="pa-4 mb-4" Elevation="2">
+                <MudText Typo="Typo.h6">Problem fetching question</MudText>
+            </MudPaper>
+        }
     }
     else if (currentView == GameView.Results)
     {
@@ -61,7 +73,7 @@
     private GameView currentView = GameView.NotStarted;
     private int lives = 5;
     private int score = 0;
-    private Question currentQuestion = new Question(-1, "", true);
+    private Question? currentQuestion;
     private int currId = 0;
     private bool midRound = false;
     private int clicksCounter = 0;
@@ -74,6 +86,8 @@
         score = 0;
         currId = 0;
         currentQuestion = await GetNextQuestion();
+        if (currentQuestion == null)
+            return;
         ResetButtonClasses();
         midRound = false;
         currentView = GameView.InProgress;
@@ -98,7 +112,7 @@
 
     private void UpdateScore(bool answer)
     {
-        if (answer == currentQuestion.Answer)
+        if (answer == currentQuestion?.Answer)
         {
             score++;
         }
@@ -110,7 +124,7 @@
 
     private void HighlightAnswer(bool answer)
     {
-        if (answer == currentQuestion.Answer)
+        if (answer == currentQuestion?.Answer)
         {
             if (answer)
             {
@@ -140,11 +154,27 @@
         buttonFalseClass = "";
     }
 
-    private async Task<Question> GetNextQuestion()
+    private async Task<Question?> GetNextQuestion()
     {
-        ApiResponse<List<Question>> response = await
-        Http.GetFromJsonAsync<ApiResponse<List<Question>>>($"randomQuestions/1");
-        currId++;
-        return response!.Content[0];
+        try
+        {
+            ApiResponse<List<Question>>? response = await
+            Http.GetFromJsonAsync<ApiResponse<List<Question>>>($"randomQuestions/1");
+            currId++;
+            return response!.Content[0];
+        }
+        catch (HttpRequestException ex)
+        {
+            Snackbar.Add($"Error fetching question: {ex.Message}", Severity.Error);
+        }
+        catch (JsonException ex)
+        {
+            Snackbar.Add($"Error parsing question data: {ex.Message}", Severity.Error);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Unexpected error: {ex.Message}", Severity.Error);
+        }
+        return null;
     }
 }
