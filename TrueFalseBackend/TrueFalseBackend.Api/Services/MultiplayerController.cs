@@ -12,11 +12,13 @@ public class RestController : ControllerBase
 {
     private readonly IRoomSynchronizer _roomSync;
     private readonly IQuestionProvider _questionProvider;
+    private readonly ILogger<RestController> _logger;
 
-    public RestController(IRoomSynchronizer roomSync, IQuestionProvider questionProvider)
+    public RestController(IRoomSynchronizer roomSync, IQuestionProvider questionProvider, ILogger<RestController> logger)
     {
         _roomSync = roomSync;
         _questionProvider = questionProvider;
+        _logger = logger;
     }
 
     [HttpGet("randomQuestions/{size}")]
@@ -24,7 +26,7 @@ public class RestController : ControllerBase
     {
         object result = new
         {
-            Status = "success",
+            Ok = true,
             Content = await _questionProvider.GetNext(size)
         };
         return Ok(result);
@@ -38,7 +40,20 @@ public class RestController : ControllerBase
         string roomId = Convert.ToBase64String(code);
         roomId = roomId.Replace("+", "-").Replace("/", "_").TrimEnd('=');
         RoomState initialRoomState = new() { RoundsNumber = roundsNum, RoundTimeoutSeconds = roundTimeout, MidRoundDelay = midRoundDelay };
-        await _roomSync.PublishRoomState(roomId, initialRoomState);
-        return Ok(new { Status = "success", Content = roomId });
+        try
+        {
+            await _roomSync.PublishRoomState(roomId, initialRoomState);
+            return Ok(new { Ok = true, Content = roomId });
+        }
+        catch (RedisDbException ex)
+        {
+            _logger.LogError("CreateRoom({roundsNum}, {roundTimeout}, {minRoundDelay}) {ex}", roundsNum, roundTimeout, midRoundDelay, ex);
+            return StatusCode(500, "Server error. Try again later.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("CreateRoom({roundsNum}, {roundTimeout}, {minRoundDelay}) {ex}", roundsNum, roundTimeout, midRoundDelay, ex);
+            return StatusCode(500, "Unexpected server error. Try again later.");
+        }
     }
 }

@@ -113,10 +113,13 @@
         };
         HubConnection.Closed += async error =>
         {
-            currentView = GameView.Reconnecting;
-            Snackbar.Add("Could not reconnect to the room. Exiting...", Severity.Error);
-            Navigation.NavigateTo("/");
-            StateHasChanged();
+            if (error != null)
+            {
+                currentView = GameView.Reconnecting;
+                Snackbar.Add("Could not reconnect to the room. Exiting...", Severity.Error);
+                Navigation.NavigateTo("/");
+                StateHasChanged();
+            }
         };
         HubConnection.On<string>("state", async (roomStateJson) =>
         {

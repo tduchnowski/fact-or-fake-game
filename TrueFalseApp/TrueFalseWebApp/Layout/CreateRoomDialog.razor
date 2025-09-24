@@ -1,4 +1,5 @@
 @inject NavigationManager Navigation
+@inject ISnackbar Snackbar
 @inject IJSRuntime JS
 @inject IConfiguration Configuration
 @inject HttpClient Http
@@ -81,16 +82,36 @@
     private async Task CreateRoom()
     {
         isSettingUp = false;
+        StateHasChanged();
         try
         {
-            ApiResponse<string> response = await
+            ApiResponse<string>? response = await
             Http.GetFromJsonAsync<ApiResponse<string>>($"createRoom?roundsNum={roundsNumber}&roundTimeout={roundTimeout}");
+            if (response == null || !response.Ok || string.IsNullOrEmpty(response.Content))
+            {
+                string errorMessage = response?.Message ?? "Unknown error occurred while creating the room.";
+                Snackbar.Add($"Error creating room: {errorMessage}", Severity.Error);
+                MudDialog.Close();
+                return;
+            }
             roomCode = response.Content;
+
+
+        }
+        catch (HttpRequestException ex)
+        {
+            Snackbar.Add($"Error creating room: {ex.Message}", Severity.Error);
+            MudDialog.Close();
+        }
+        catch (JsonException ex)
+        {
+            Snackbar.Add($"Error parsing server response: {ex.Message}", Severity.Error);
+            MudDialog.Close();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error creating room: {ex.Message}");
+            Snackbar.Add($"Unexpected error: {ex.Message}", Severity.Error);
+            MudDialog.Close();
         }
-
     }
 }
