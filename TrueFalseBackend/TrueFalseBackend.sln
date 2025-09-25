@@ -7,6 +7,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TrueFalseBackend.Api", "Tru
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TrueFalseBackend.Tests", "TrueFalseBackend.Tests\TrueFalseBackend.Tests.csproj", "{E4A4E6A2-7053-4CF9-876A-A24A648E99F7}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "TrueFalseBackend.Tools", "TrueFalseBackend.Tools", "{F2E672AB-F99B-4516-ABAC-95A2E4F79BA0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JsonToCsvConverter", "TrueFalseBackend.Tools\JsonToCsvConverter\JsonToCsvConverter.csproj", "{38B79AE3-6245-4D82-9617-A8A358739322}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -24,5 +28,12 @@ Global
 		{E4A4E6A2-7053-4CF9-876A-A24A648E99F7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E4A4E6A2-7053-4CF9-876A-A24A648E99F7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E4A4E6A2-7053-4CF9-876A-A24A648E99F7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{38B79AE3-6245-4D82-9617-A8A358739322}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{38B79AE3-6245-4D82-9617-A8A358739322}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{38B79AE3-6245-4D82-9617-A8A358739322}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{38B79AE3-6245-4D82-9617-A8A358739322}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{38B79AE3-6245-4D82-9617-A8A358739322} = {F2E672AB-F99B-4516-ABAC-95A2E4F79BA0}
 	EndGlobalSection
 EndGlobal
