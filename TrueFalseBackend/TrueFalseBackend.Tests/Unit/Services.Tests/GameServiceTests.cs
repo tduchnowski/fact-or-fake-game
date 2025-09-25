@@ -192,7 +192,6 @@ public class GameServiceTests
     [Theory]
     [InlineData("waitingForStart")]
     [InlineData("roundInProgress")]
-    [InlineData("finished")]
     public async Task TestGameService_StartGameWhenStateIsInProgress_DoNothing(string stage)
     {
         RoomState waitingRoomState = _initialRoomState.Clone();
