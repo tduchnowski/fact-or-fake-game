@@ -14,4 +14,8 @@ public class Question
 
     [Required]
     public bool Answer { get; set; }
+
+    public string? Category { get; set; }
+
+    public string? Explanation { get; set; }
 }
