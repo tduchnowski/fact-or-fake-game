@@ -16,6 +16,9 @@ services:
 
   db:
     image: postgres:latest
+    build:
+      context: ./postgres/
+      dockerfile: Dockerfile
     container_name: postgres-dev
     restart: unless-stopped
     environment:
