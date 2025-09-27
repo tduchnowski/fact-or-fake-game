@@ -9,7 +9,7 @@ using RedLockNet.SERedis.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
-builder.Services.AddDbContext<AppDbContext>(options =>
+builder.Services.AddDbContextFactory<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
 if (builder.Environment.IsDevelopment())
 {
@@ -21,11 +21,10 @@ if (builder.Environment.IsDevelopment())
 }
 else
 {
-    // TODO: replace it with a provider from a real db
     builder.Services.AddSingleton<IQuestionProvider>(sp =>
     {
-        List<Question> questions = Enumerable.Range(1, 100).Select(n => new Question { Id = n, Text = $"Question {n}", Answer = n % 2 == 0 }).ToList();
-        return new InMemoryQuestionProvider(questions);
+        var dbFactory = sp.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        return new DbQuestionProvider(dbFactory, 500);
     });
 }
 string allowFrontendPolicy = "AllowFrontend";
