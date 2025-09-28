@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: game-server
+  namespace: fact-or-fake-game
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: game-server
+  template:
+    metadata:
+      labels:
+        app: game-server
+    spec:
+      imagePullSecrets:
+      - name: regcred
+      containers:
+      - name: game-server
+        image: registry.gitlab.com/tduchnowski1/fact-or-fake-game/truefalsebackend:1.0.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: server-config
+              key: ASPNETCORE_ENVIRONMENT
+        - name: ConnectionStrings__Redis
+          valueFrom:
+            configMapKeyRef:
+              name: server-config
+              key: ConnectionStrings__Redis
+        - name: ConnectionStrings__Postgres
+          valueFrom:
+            configMapKeyRef:
+              name: server-config
+              key: ConnectionStrings__Postgres
+        livenessProbe:
+          exec:
+            command: ["/bin/true"] # Always succeeds
+          initialDelaySeconds: 1
+          periodSeconds: 1
+        readinessProbe:
+          exec:
+            command: ["/bin/true"] # Always succeeds
+          initialDelaySeconds: 1
+          periodSeconds: 1

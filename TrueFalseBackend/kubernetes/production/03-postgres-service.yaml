@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: fact-or-fake-game 
+spec:
+  ports:
+    - port: 5432
+      name: pg
+  clusterIP: None
+  selector:
+    app: postgres
