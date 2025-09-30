@@ -1,6 +1,7 @@
 NEXT:
   - fix the postgres password in Kubernetes, don't hardcode it in connection string 
-  - fix the /health and /alive endpoints so that they skip middleware
+  - fix the /health and /alive endpoints so that middleware skips them
+  - add users to DB
   - add middleware that would log user activity in the database
   - make a bot
   - more readable error messages for users
