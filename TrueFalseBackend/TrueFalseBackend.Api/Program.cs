@@ -45,6 +45,7 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(sp => { return ConnectionM
 builder.Services.AddSingleton<IRoomSynchronizer, RedisGame>();
 builder.Services.AddSingleton<GameService>();
 builder.Services.AddSingleton<RedisDb>();
+builder.Services.AddSingleton<ActivityLoggerQueue>();
 builder.Services.AddSingleton(sp =>
 {
     var multiplexer = sp.GetRequiredService<IConnectionMultiplexer>();
@@ -62,11 +63,15 @@ builder.Services.AddTransient<TelegramValidator>(_ =>
 {
     return new TelegramValidator(builder.Configuration["Telegram:BotToken"]);
 });
+builder.Services.AddTransient<ActivityDbMiddleware>();
 
 var app = builder.Build();
 app.UseCors(allowFrontendPolicy);
 if (!builder.Environment.IsDevelopment())
+{
     app.UseMiddleware<TelegramValidator>();
+}
+app.UseMiddleware<ActivityDbMiddleware>();
 app.MapControllers();
 app.MapHub<MultiplayerHub>("/api/hub");
 app.MapGet("/health/ready", () => Results.Ok("Ready"));

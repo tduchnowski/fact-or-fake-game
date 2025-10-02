@@ -1,8 +1,10 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace TrueFalseBackend.Models;
 
+// the user as it is in the DB
 public class User
 {
     [Key]
@@ -21,3 +23,12 @@ public class User
     [Column("games_played")]
     public int GamesPlayed { get; set; } = 0;
 }
+
+// user inside of Init Data string from Telegram
+public record WebAppUser
+(
+    [property: JsonPropertyName("first_name")] string? FirstName,
+    [property: JsonPropertyName("last_name")] string? LastName,
+    [property: JsonPropertyName("username")] string Username,
+    [property: JsonPropertyName("photo_url")] string? PhotoUrl
+);

@@ -50,6 +50,7 @@ public class TelegramValidator : IMiddleware
             data = headerParts[1];
             if (IsValid(data))
             {
+                context.Items["InitData"] = data;
                 await next(context);
             }
             else
