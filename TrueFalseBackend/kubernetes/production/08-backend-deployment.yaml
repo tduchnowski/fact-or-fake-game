@@ -38,12 +38,18 @@ spec:
               name: server-config
               key: ConnectionStrings__Postgres
         livenessProbe:
-          exec:
-            command: ["/bin/true"] # Always succeeds
-          initialDelaySeconds: 1
-          periodSeconds: 1
+          httpGet:
+            path: /health/live
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 2
+          failureThreshold: 3
         readinessProbe:
-          exec:
-            command: ["/bin/true"] # Always succeeds
-          initialDelaySeconds: 1
-          periodSeconds: 1
+          httpGet:
+            path: /health/ready
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 2
+          failureThreshold: 3

@@ -64,8 +64,14 @@ builder.Services.AddTransient<TelegramValidator>(_ =>
     return new TelegramValidator(builder.Configuration["Telegram:BotToken"]);
 });
 builder.Services.AddTransient<ActivityDbMiddleware>();
+builder.Services.AddHealthChecks();
 
 var app = builder.Build();
+app.Map("/health", health =>
+{
+    health.UseHealthChecks("/live");
+    health.UseHealthChecks("/ready");
+});
 app.UseCors(allowFrontendPolicy);
 if (!builder.Environment.IsDevelopment())
 {
@@ -74,10 +80,6 @@ if (!builder.Environment.IsDevelopment())
 app.UseMiddleware<ActivityDbMiddleware>();
 app.MapControllers();
 app.MapHub<MultiplayerHub>("/api/hub");
-app.MapGet("/health/ready", () => Results.Ok("Ready"));
-app.MapGet("/health/live", () => Results.Ok("Alive"));
-
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
