@@ -58,9 +58,11 @@ builder.Services.AddHostedService<RedisStateUpdater>();
 builder.Services.AddSingleton<IRedisLockerHelper, RedisLocker>();
 string? botToken = builder.Configuration["Telegram:BotToken"];
 if (string.IsNullOrEmpty(botToken)) throw new Exception("No BotToken found in a configuration");
+string? apiKey = builder.Configuration["ApiKey"];
+if (string.IsNullOrEmpty(botToken)) throw new Exception("No ApiKey found in a configuration");
 builder.Services.AddTransient<TelegramValidator>(_ =>
 {
-    return new TelegramValidator(builder.Configuration["Telegram:BotToken"]);
+    return new TelegramValidator(botToken, apiKey);
 });
 
 var app = builder.Build();
