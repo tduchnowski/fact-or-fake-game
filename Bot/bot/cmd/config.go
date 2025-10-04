@@ -8,10 +8,11 @@ import (
 )
 
 type Config struct {
-	GameApiUrl string `mapstructure:"GAME_API_URL"`
-	TgApiUrl   string `mapstructure:"TG_API_URL"`
-	BotToken   string `mapstructure:"BOT_TOKEN"`
-	ApiKey     string `mapstructure:"API_KEY"`
+	GameApiUrl        string `mapstructure:"GAME_API_URL"`
+	TgApiUrl          string `mapstructure:"TG_API_URL"`
+	BotToken          string `mapstructure:"BOT_TOKEN"`
+	ApiKey            string `mapstructure:"API_KEY"`
+	MiniAppDirectLink string `mapstructure:"MINI_APP_DIRECT_LINK"`
 }
 
 func LoadConfig() (*Config, error) {

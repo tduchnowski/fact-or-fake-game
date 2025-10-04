@@ -103,7 +103,7 @@ func createBot() (*Bot, error) {
 		token:   config.BotToken,
 		baseUrl: baseUrl,
 	}
-	cmdHandler, err := handler.CreateCommandHandler(config.GameApiUrl, config.ApiKey)
+	cmdHandler, err := handler.CreateCommandHandler(config.GameApiUrl, config.ApiKey, config.MiniAppDirectLink)
 	if err != nil {
 		slog.Error("couldn't create the bot: " + err.Error())
 		return nil, err

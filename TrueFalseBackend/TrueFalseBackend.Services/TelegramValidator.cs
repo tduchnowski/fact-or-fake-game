@@ -46,7 +46,6 @@ public class TelegramValidator : IMiddleware
         else if (context.Request.Headers.TryGetValue("X-Telegram-Initdata", out initData))
         {
             string data = initData.ToString();
-            Console.WriteLine(data);
             var headerParts = data.Split(" ");
             if (headerParts.Length < 2)
             {
@@ -60,23 +59,23 @@ public class TelegramValidator : IMiddleware
                 case "tma":
                     if (IsValid(data))
                     {
+                        context.Items["InitData"] = data;
                         await next(context);
                     }
                     else
                     {
                         await UnathorizedResponse(context, "InitData validation failed");
-                        return;
                     }
                     break;
                 case "bot":
                     if (IsValidBot(data))
                     {
+                        context.Items["InitData"] = headerParts[2];
                         await next(context);
                     }
                     else
                     {
                         await UnathorizedResponse(context, "InitData validation failed");
-                        return;
                     }
                     break;
             }
@@ -89,7 +88,6 @@ public class TelegramValidator : IMiddleware
 
     private bool IsValid(string data)
     {
-        Console.WriteLine(data);
         var parsed = HttpUtility.ParseQueryString(data);
         string hash = parsed["hash"];
         var withoutHashPairs = parsed.AllKeys

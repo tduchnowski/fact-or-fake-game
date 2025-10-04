@@ -13,13 +13,19 @@ import (
 	"FactOrFake.Bot/telegramapi"
 )
 
+type GameApiResponse struct {
+	Ok      bool   `json:"ok"`
+	Content string `json:"content"`
+}
+
 type CommandHandler struct {
 	serverApiHttpClient *http.Client
 	apiServerUrl        string
 	apiKey              string
+	miniAppLink         string
 }
 
-func CreateCommandHandler(apiServerUrl, apiKey string) (CommandHandler, error) {
+func CreateCommandHandler(apiServerUrl, apiKey, miniAppLink string) (CommandHandler, error) {
 	client := http.Client{
 		Timeout: 5 * time.Second,
 		Transport: &http.Transport{
@@ -32,22 +38,24 @@ func CreateCommandHandler(apiServerUrl, apiKey string) (CommandHandler, error) {
 		serverApiHttpClient: &client,
 		apiServerUrl:        apiServerUrl,
 		apiKey:              apiKey,
+		miniAppLink:         miniAppLink,
 	}, nil
 }
 
 func (cmdHandler CommandHandler) GetResponder(msg *telegramapi.Message) Responder {
+	username := msg.Chat.Username
+	slog.Info(fmt.Sprintf("user activity -- command: %s, user: %s", msg.Text, username))
 	var resp Responder
 	switch msg.Text {
 	case "/start":
 		resp = start(msg)
 	case "/help":
 		resp = help(msg)
-	case "/createGame":
-		resp = createGame(msg, cmdHandler.serverApiHttpClient, cmdHandler.apiServerUrl, cmdHandler.apiKey)
+	}
+	if strings.HasPrefix(msg.Text, "/createGame") {
+		resp = createGame(msg, cmdHandler.serverApiHttpClient, cmdHandler.apiServerUrl, cmdHandler.apiKey, cmdHandler.miniAppLink)
 	}
 	if resp != nil {
-		username := msg.Chat.Username
-		slog.Info(fmt.Sprintf("user activity -- command: %s, user: %s", msg.Text, username))
 		return resp
 	}
 	return SendMsg{}
@@ -63,7 +71,7 @@ func help(msg *telegramapi.Message) Responder {
 	return SendMsg{ChatId: msg.Chat.Id, Text: text}
 }
 
-func createGame(msg *telegramapi.Message, httpClient *http.Client, requestUrl, apiKey string) Responder {
+func createGame(msg *telegramapi.Message, httpClient *http.Client, requestUrl, apiKey, miniAppLink string) Responder {
 	msgText := msg.Text
 	cmdParts := strings.Fields(msgText)
 	if len(cmdParts) != 3 {
@@ -78,7 +86,7 @@ func createGame(msg *telegramapi.Message, httpClient *http.Client, requestUrl, a
 	}
 	userInitData := createUserInitData(msg)
 	initDataHeader := fmt.Sprintf("bot %s %s", apiKey, userInitData)
-	request.Header.Add("X-Telegram-InitData", initDataHeader)
+	request.Header.Add("X-Telegram-Initdata", initDataHeader)
 	response, err := httpClient.Do(request)
 	if err != nil {
 		slog.Error(err.Error())
@@ -91,11 +99,17 @@ func createGame(msg *telegramapi.Message, httpClient *http.Client, requestUrl, a
 	}
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
-		slog.Error(err.Error())
+		slog.Error(fmt.Sprintf("couldn't read the response when creating a room. %s", err.Error()))
 		return SendMsg{ChatId: msg.Chat.Id, Text: "Internal server error. Please try again later"}
 	}
-	fmt.Printf("%s\n", body)
-	return SendMsg{ChatId: msg.Chat.Id, Text: string(body)}
+	var apiResponse GameApiResponse
+	err = json.Unmarshal([]byte(body), &apiResponse)
+	if err != nil {
+		slog.Error(fmt.Sprintf("couldn't unmarshal apiResponse for body = %s. %s", body, err.Error()))
+		return SendMsg{ChatId: msg.Chat.Id, Text: "Internal server error. Please try again later"}
+	}
+	miniAppDirectLink := fmt.Sprintf("Share this link with people so they can play with you:\n%s?startapp=%s", miniAppLink, apiResponse.Content)
+	return SendMsg{ChatId: msg.Chat.Id, Text: miniAppDirectLink}
 }
 
 func createUserInitData(msg *telegramapi.Message) string {

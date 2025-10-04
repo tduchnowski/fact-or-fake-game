@@ -45,6 +45,7 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(sp => { return ConnectionM
 builder.Services.AddSingleton<IRoomSynchronizer, RedisGame>();
 builder.Services.AddSingleton<GameService>();
 builder.Services.AddSingleton<RedisDb>();
+builder.Services.AddSingleton<ActivityLoggerQueue>();
 builder.Services.AddSingleton(sp =>
 {
     var multiplexer = sp.GetRequiredService<IConnectionMultiplexer>();
@@ -64,17 +65,24 @@ builder.Services.AddTransient<TelegramValidator>(_ =>
 {
     return new TelegramValidator(botToken, apiKey);
 });
+builder.Services.AddTransient<ActivityDbMiddleware>();
+builder.Services.AddHealthChecks();
 
 var app = builder.Build();
+app.Map("/health", health =>
+{
+    health.UseHealthChecks("/live");
+    health.UseHealthChecks("/ready");
+});
 app.UseCors(allowFrontendPolicy);
 if (!builder.Environment.IsDevelopment())
+{
     app.UseMiddleware<TelegramValidator>();
+}
+app.UseMiddleware<TelegramValidator>();
+app.UseMiddleware<ActivityDbMiddleware>();
 app.MapControllers();
 app.MapHub<MultiplayerHub>("/api/hub");
-app.MapGet("/health/ready", () => Results.Ok("Ready"));
-app.MapGet("/health/live", () => Results.Ok("Alive"));
-
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
