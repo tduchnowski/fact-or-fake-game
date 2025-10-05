@@ -95,7 +95,6 @@ public class TelegramValidator : IMiddleware
           .OrderBy(k => k)
           .Select(k => $"{k}={parsed[k]}");
         var checkString = string.Join("\n", withoutHashPairs);
-        Console.WriteLine(checkString);
         using var hmac1 = new HMACSHA256(Encoding.UTF8.GetBytes("WebAppData"));
         var secretKey = hmac1.ComputeHash(Encoding.UTF8.GetBytes(_botToken));
         using var hmac2 = new HMACSHA256(secretKey);

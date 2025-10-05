@@ -1,52 +1,50 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: game-server
+  name: bot
   namespace: fact-or-fake-game
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: game-server
+      app: bot
   template:
     metadata:
       labels:
-        app: game-server
+        app: bot
     spec:
       imagePullSecrets:
       - name: regcred
       containers:
-      - name: game-server
-        image: registry.gitlab.com/tduchnowski1/fact-or-fake-game/truefalsebackend:1.0.0
+      - name: bot
+        image: registry.gitlab.com/tduchnowski1/fact-or-fake-game/fact-or-fake-bot:1.0.0
         imagePullPolicy: Always
-        ports:
-        - containerPort: 3000
         env:
-        - name: ASPNETCORE_ENVIRONMENT
+        - name: GAME_API_URL
           valueFrom:
             configMapKeyRef:
-              name: server-config
-              key: ASPNETCORE_ENVIRONMENT
-        - name: ConnectionStrings__Redis
+              name: bot-config
+              key: GAME_API_URL
+        - name: TG_API_URL
           valueFrom:
             configMapKeyRef:
-              name: server-config
-              key: ConnectionStrings__Redis
-        - name: ConnectionStrings__Postgres
+              name: bot-config
+              key: TG_API_URL
+        - name: BOT_TOKEN
           valueFrom:
             configMapKeyRef:
-              name: server-config
-              key: ConnectionStrings__Postgres
-        - name: Telegram__BotToken
+              name: bot-config
+              key: BOT_TOKEN
+        - name: MINI_APP_DIRECT_LINK
           valueFrom:
             configMapKeyRef:
-              name: server-config
-              key: Telegram__BotToken
-        - name: ApiKey
+              name: bot-config
+              key: MINI_APP_DIRECT_LINK
+        - name: API_KEY
           valueFrom:
             configMapKeyRef:
-              name: server-config
-              key: ApiKey
+              name: bot-config
+              key: API_KEY
         livenessProbe:
           httpGet:
             path: /health/live

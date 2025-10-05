@@ -52,7 +52,7 @@ func (cmdHandler CommandHandler) GetResponder(msg *telegramapi.Message) Responde
 	case "/help":
 		resp = help(msg)
 	}
-	if strings.HasPrefix(msg.Text, "/createGame") {
+	if strings.HasPrefix(msg.Text, "/creategame") {
 		resp = createGame(msg, cmdHandler.serverApiHttpClient, cmdHandler.apiServerUrl, cmdHandler.apiKey, cmdHandler.miniAppLink)
 	}
 	if resp != nil {
