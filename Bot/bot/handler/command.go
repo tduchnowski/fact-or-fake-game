@@ -62,12 +62,12 @@ func (cmdHandler CommandHandler) GetResponder(msg *telegramapi.Message) Responde
 }
 
 func start(msg *telegramapi.Message) Responder {
-	text := "Hello and welcome!\n\nThis is a mini app that allows you to play True/False quiz games either by yourself or with friends.\n\nYou can also directly create game rooms through this bot. Whether you create a room with a bot or through a mini app, just share the link with your friends and start playing with them!\n\nClick Start to launch an app\n\nHave fun!"
+	text := "Hello and welcome!\n\nThis is a mini app that allows you to play True/False quiz games either by yourself or with friends.\n\nYou can directly create game rooms through this bot or just click Play button below to launch a mini app. Whether you create a room with a bot or through a mini app, just share the link with your friends and start playing with them!\n\nHave fun!"
 	return SendMsg{ChatId: msg.Chat.Id, Text: text}
 }
 
 func help(msg *telegramapi.Message) Responder {
-	text := "Creating a game:\n\n/createGame <number of rounds> <round duration in seconds>\n\nYou can also just open the mini app and play there"
+	text := "Creating a game:\n\n/creategame <number of rounds> <round duration in seconds>\n\nYou can also just open the mini app and play there"
 	return SendMsg{ChatId: msg.Chat.Id, Text: text}
 }
 
@@ -75,7 +75,7 @@ func createGame(msg *telegramapi.Message, httpClient *http.Client, requestUrl, a
 	msgText := msg.Text
 	cmdParts := strings.Fields(msgText)
 	if len(cmdParts) != 3 {
-		return SendMsg{ChatId: msg.Chat.Id, Text: "Incorrect arguments for this command\n\nExample:\n/createGame 10 5\n\nwhere 10 is the number of rounds you want and 5 is the maximum round duration"}
+		return SendMsg{ChatId: msg.Chat.Id, Text: "Incorrect arguments for this command\n\nExample:\n/creategame 10 5\n\nwhere 10 is the number of rounds you want and 5 is the maximum round duration"}
 	}
 	roundsNum, roundTimeout := cmdParts[1], cmdParts[2]
 	createRoomUrl := fmt.Sprintf("%s/createRoom?roundsNum=%s&roundTimeout=%s", requestUrl, roundsNum, roundTimeout)
